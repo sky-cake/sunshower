@@ -1,4 +1,4 @@
-package com.example.sunshower
+package org.ayasequart.sunshower
 
 import org.junit.Test
 

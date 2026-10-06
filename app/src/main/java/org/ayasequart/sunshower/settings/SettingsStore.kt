@@ -1,4 +1,4 @@
-package com.example.sunshower.settings
+package org.ayasequart.sunshower.settings
 
 import android.content.Context
 

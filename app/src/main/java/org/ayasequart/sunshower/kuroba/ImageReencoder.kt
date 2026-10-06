@@ -1,4 +1,4 @@
-package com.example.sunshower.kuroba
+package org.ayasequart.sunshower.kuroba
 
 import android.content.ContentResolver
 import android.graphics.Bitmap

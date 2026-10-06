@@ -1,4 +1,4 @@
-package com.example.sunshower.gif
+package org.ayasequart.sunshower.gif
 
 import android.content.ContentResolver
 import android.content.ContentValues

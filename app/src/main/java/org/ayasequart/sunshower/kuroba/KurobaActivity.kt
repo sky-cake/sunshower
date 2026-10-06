@@ -1,4 +1,4 @@
-package com.example.sunshower.kuroba
+package org.ayasequart.sunshower.kuroba
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -15,8 +15,8 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
-import com.example.sunshower.R
-import com.example.sunshower.gif.GifSaver
+import org.ayasequart.sunshower.R
+import org.ayasequart.sunshower.gif.GifSaver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

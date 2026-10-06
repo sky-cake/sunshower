@@ -1,4 +1,4 @@
-package com.example.sunshower.edit
+package org.ayasequart.sunshower.edit
 
 import android.content.Context
 import android.graphics.Bitmap

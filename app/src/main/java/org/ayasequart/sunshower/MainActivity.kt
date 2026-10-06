@@ -1,4 +1,4 @@
-package com.example.sunshower
+package org.ayasequart.sunshower
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -26,8 +26,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
-import com.example.sunshower.gif.GifSaver
-import com.example.sunshower.settings.SettingsStore
+import org.ayasequart.sunshower.gif.GifSaver
+import org.ayasequart.sunshower.settings.SettingsStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

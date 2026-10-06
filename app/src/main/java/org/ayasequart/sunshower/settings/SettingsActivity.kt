@@ -1,4 +1,4 @@
-package com.example.sunshower.settings
+package org.ayasequart.sunshower.settings
 
 import android.os.Bundle
 import android.widget.ArrayAdapter
@@ -11,7 +11,7 @@ import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import com.example.sunshower.R
+import org.ayasequart.sunshower.R
 
 class SettingsActivity : ComponentActivity() {
 

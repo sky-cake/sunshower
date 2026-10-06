@@ -1,4 +1,4 @@
-package com.example.sunshower.edit
+package org.ayasequart.sunshower.edit
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -17,10 +17,10 @@ import androidx.activity.ComponentActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
-import com.example.sunshower.R
-import com.example.sunshower.gif.GifReader
-import com.example.sunshower.gif.GifSaver
-import com.example.sunshower.settings.SettingsStore
+import org.ayasequart.sunshower.R
+import org.ayasequart.sunshower.gif.GifReader
+import org.ayasequart.sunshower.gif.GifSaver
+import org.ayasequart.sunshower.settings.SettingsStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

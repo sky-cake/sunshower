@@ -1,13 +1,13 @@
-package com.example.sunshower
+package org.ayasequart.sunshower
 
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import com.example.sunshower.edit.EditorActivity
-import com.example.sunshower.kuroba.KurobaActivity
-import com.example.sunshower.settings.SettingsActivity
+import org.ayasequart.sunshower.edit.EditorActivity
+import org.ayasequart.sunshower.kuroba.KurobaActivity
+import org.ayasequart.sunshower.settings.SettingsActivity
 
 class MenuActivity : ComponentActivity() {
 

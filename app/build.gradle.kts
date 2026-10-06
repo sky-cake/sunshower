@@ -3,13 +3,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.sunshower"
+    namespace = "org.ayasequart.sunshower"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.sunshower"
+        applicationId = "org.ayasequart.sunshower"
         minSdk = 24
         targetSdk = 37
         versionCode = 1
@@ -45,7 +45,7 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.square.gifencoder)
-    implementation(libs.android.gif.drawable)
+    implementation(libs.glide.gifdecoder)
     implementation(libs.androidx.exifinterface)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
