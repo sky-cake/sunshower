@@ -1,3 +1,5 @@
+![alt text](logo.png)
+
 Sunshower is a light image editor that allows you to,
 
 - Take animated GIFs directly from your phone camera

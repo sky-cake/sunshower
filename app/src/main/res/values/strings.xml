@@ -45,8 +45,8 @@
     <string name="done">Done</string>
     <string name="gif_loaded">%d frames loaded</string>
     <string name="load_failed">Could not load file</string>
-    <string name="add_rect">Add rect</string>
-    <string name="add_border">Add border</string>
+    <string name="add_rect">Rect</string>
+    <string name="add_border">Border</string>
     <string name="delete">Delete</string>
     <string name="stroke_width">Stroke</string>
     <string name="save">Save</string>

@@ -1,4 +1,3 @@
-# Required for optimization.packageScope: allows R8 to widen access modifiers when
-# repackaging classes, otherwise repackaged classes can extend package-private
-# superclasses from another package and throw IllegalAccessError at runtime.
+# Lets R8 widen access modifiers when minifying, enabling more aggressive
+# class merging/obfuscation safely. Standard companion to R8 full mode.
 -allowaccessmodification

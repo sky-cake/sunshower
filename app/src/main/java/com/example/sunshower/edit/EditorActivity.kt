@@ -14,6 +14,8 @@ import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.sunshower.R
 import com.example.sunshower.gif.GifReader
@@ -47,6 +49,13 @@ class EditorActivity : ComponentActivity() {
         statusText = findViewById(R.id.editor_status)
         borderRow = findViewById(R.id.border_row)
         strokeBar = findViewById(R.id.stroke_bar)
+        val buttons = findViewById<View>(R.id.editor_buttons)
+        ViewCompat.setOnApplyWindowInsetsListener(buttons) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val extra = (24 * resources.displayMetrics.density).toInt()
+            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, bars.bottom + extra)
+            WindowInsetsCompat.CONSUMED
+        }
         buildPalette()
 
         findViewById<Button>(R.id.add_rect_button).setOnClickListener {
@@ -214,13 +223,13 @@ class EditorActivity : ComponentActivity() {
         private const val SAVED_MESSAGE_MS = 3000L
         const val EXTRA_URI = "uri"
         private val PALETTE = intArrayOf(
+            0xFF212121.toInt(),
             0xFFE53935.toInt(),
             0xFF43A047.toInt(),
             0xFF1E88E5.toInt(),
             0xFFFDD835.toInt(),
             0xFF8E24AA.toInt(),
             0xFFFB8C00.toInt(),
-            0xFF212121.toInt(),
             0xFFFAFAFA.toInt()
         )
     }
