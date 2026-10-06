@@ -1,13 +1,14 @@
 package com.example.sunshower
 
 import android.Manifest
-import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Matrix
-import android.net.Uri
+import android.graphics.Paint
 import android.os.Bundle
 import android.util.Size
+import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
@@ -22,14 +23,14 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.sunshower.gif.GifSaver
 import com.example.sunshower.settings.SettingsStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import pl.droidsonroids.gif.GifDrawable
-import pl.droidsonroids.gif.GifImageView
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -63,6 +64,13 @@ class MainActivity : ComponentActivity() {
         recordButton = findViewById(R.id.record_button)
         statusText = findViewById(R.id.status_text)
         recordButton.setOnClickListener { toggleRecording() }
+        val controls = findViewById<View>(R.id.controls)
+        ViewCompat.setOnApplyWindowInsetsListener(controls) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val extra = (24 * resources.displayMetrics.density).toInt()
+            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, bars.bottom + extra)
+            WindowInsetsCompat.CONSUMED
+        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
             PackageManager.PERMISSION_GRANTED
         ) {
@@ -164,11 +172,35 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun scaleFrame(source: Bitmap): Bitmap {
-        val shortSide = SettingsStore.load(this).shortSide
-        val scale = shortSide.toFloat() / minOf(source.width, source.height).coerceAtLeast(1)
-        val w = (source.width * scale).roundToInt().coerceAtLeast(1)
-        val h = (source.height * scale).roundToInt().coerceAtLeast(1)
-        return Bitmap.createScaledBitmap(source, w, h, true)
+        val settings = SettingsStore.load(this)
+        val targetAspect = SettingsStore.aspectRatio(settings.aspect)
+        val srcAspect = source.width.toFloat() / source.height
+        val cropW: Int
+        val cropH: Int
+        if (srcAspect > targetAspect) {
+            cropH = source.height
+            cropW = (cropH * targetAspect).roundToInt().coerceIn(1, source.width)
+        } else {
+            cropW = source.width
+            cropH = (cropW / targetAspect).roundToInt().coerceIn(1, source.height)
+        }
+        val scale = settings.shortSide.toFloat() / minOf(cropW, cropH).coerceAtLeast(1)
+        val outW = (cropW * scale).roundToInt().coerceAtLeast(1)
+        val outH = (cropH * scale).roundToInt().coerceAtLeast(1)
+        val matrix = Matrix().apply {
+            postTranslate(
+                -(source.width - cropW) / 2f,
+                -(source.height - cropH) / 2f
+            )
+            postScale(scale, scale)
+        }
+        val out = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+        Canvas(out).drawBitmap(
+            source,
+            matrix,
+            Paint(Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
+        )
+        return out
     }
 
     private fun toggleRecording() {
@@ -199,7 +231,11 @@ class MainActivity : ComponentActivity() {
                         statusText.setText(R.string.save_failed)
                     } else {
                         statusText.setText(R.string.saved)
-                        showPlayback(uri)
+                        statusText.postDelayed({
+                            if (statusText.text == getString(R.string.saved)) {
+                                statusText.text = ""
+                            }
+                        }, 2000)
                     }
                 }
             }
@@ -211,13 +247,6 @@ class MainActivity : ComponentActivity() {
             recordButton.setText(R.string.stop)
             statusText.setText(R.string.recording)
         }
-    }
-
-    private fun showPlayback(uri: Uri) {
-        val afd = contentResolver.openAssetFileDescriptor(uri, "r") ?: return
-        val view = GifImageView(this)
-        view.setImageDrawable(GifDrawable(afd))
-        AlertDialog.Builder(this).setView(view).setPositiveButton(android.R.string.ok, null).show()
     }
 
     override fun onDestroy() {

@@ -40,6 +40,12 @@ class SettingsActivity : ComponentActivity() {
         resolutionSpinner.adapter = adapter
         resolutionSpinner.setSelection(shortSides.indexOf(settings.shortSide).coerceAtLeast(0))
 
+        val aspectSpinner = findViewById<Spinner>(R.id.aspect_spinner)
+        val aspectAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, SettingsStore.ASPECTS)
+        aspectAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        aspectSpinner.adapter = aspectAdapter
+        aspectSpinner.setSelection(SettingsStore.ASPECTS.indexOf(settings.aspect).coerceAtLeast(0))
+
         val loopOnce = findViewById<RadioButton>(R.id.loop_once)
         val loopInfinite = findViewById<RadioButton>(R.id.loop_infinite)
         val loopCountRadio = findViewById<RadioButton>(R.id.loop_count)
@@ -77,6 +83,7 @@ class SettingsActivity : ComponentActivity() {
             val s = Settings(
                 fpsBar.progress + 1,
                 shortSides[resolutionSpinner.selectedItemPosition.coerceAtLeast(0)],
+                SettingsStore.ASPECTS[aspectSpinner.selectedItemPosition.coerceAtLeast(0)],
                 loopMode,
                 countInput.text.toString().toIntOrNull()?.coerceIn(1, 100) ?: 1,
                 ditheringSwitch.isChecked,

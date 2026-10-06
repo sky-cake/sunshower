@@ -17,6 +17,7 @@
     <string name="fps_label">Frames per second</string>
     <string name="fps_value">%d fps</string>
     <string name="resolution_label">Resolution (short side)</string>
+    <string name="aspect_label">Aspect ratio</string>
     <string name="loop_label">Loop behavior</string>
     <string name="loop_once">Play once</string>
     <string name="loop_infinite">Loop forever</string>
