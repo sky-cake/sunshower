@@ -15,7 +15,6 @@ import android.provider.MediaStore
 import android.util.Size
 import android.view.View
 import android.widget.ImageButton
-import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -30,12 +29,11 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import org.ayasequart.sunshower.gif.GifSaver
 import org.ayasequart.sunshower.settings.SettingsActivity
 import org.ayasequart.sunshower.settings.SettingsStore
+import org.ayasequart.sunshower.ui.applySystemBarInsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -86,20 +84,11 @@ class MainActivity : ComponentActivity() {
         }
         thumbnailView.setOnClickListener { openLatestGif() }
         updateThumbnail()
-        val controls = findViewById<View>(R.id.controls)
-        ViewCompat.setOnApplyWindowInsetsListener(controls) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val extra = (24 * resources.displayMetrics.density).toInt()
-            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, bars.bottom + extra)
-            WindowInsetsCompat.CONSUMED
-        }
-        ViewCompat.setOnApplyWindowInsetsListener(thumbnailView) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val lp = view.layoutParams as FrameLayout.LayoutParams
-            lp.bottomMargin = (24 * resources.displayMetrics.density).toInt() + bars.bottom
-            view.requestLayout()
-            WindowInsetsCompat.CONSUMED
-        }
+        val content = findViewById<View>(android.R.id.content)
+        content.setBackgroundColor(android.graphics.Color.BLACK)
+        content.applySystemBarInsets(
+            (24 * resources.displayMetrics.density).toInt()
+        )
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
             PackageManager.PERMISSION_GRANTED
         ) {

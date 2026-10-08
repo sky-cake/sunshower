@@ -1,6 +1,7 @@
 package org.ayasequart.sunshower.settings
 
 import android.os.Bundle
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
@@ -12,12 +13,16 @@ import android.widget.Spinner
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import org.ayasequart.sunshower.R
+import org.ayasequart.sunshower.ui.applySystemBarInsets
 
 class SettingsActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
+        findViewById<View>(android.R.id.content).applySystemBarInsets(
+            (16 * resources.displayMetrics.density).toInt()
+        )
         val settings = SettingsStore.load(this)
         val fpsBar = findViewById<SeekBar>(R.id.fps_bar)
         val fpsValue = findViewById<TextView>(R.id.fps_value)

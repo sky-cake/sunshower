@@ -1,0 +1,5 @@
+v1.1.0:
+- add switch cameras
+- add thumbnail and previews for captures
+- add color picker to draw page
+- add about page

@@ -50,7 +50,6 @@
     <string name="reduce_value">%d%% of original size</string>
     <string name="reduce_value_dims">%1$d×%2$d → %3$d×%4$d</string>
     <string name="done">Done</string>
-    <string name="gif_loaded">%d frames loaded</string>
     <string name="load_failed">Could not load file</string>
     <string name="add_rect">Rect</string>
     <string name="add_border">Border</string>

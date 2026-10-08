@@ -82,7 +82,6 @@
         android:layout_height="72dp"
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="16dp"
-        android:layout_marginBottom="24dp"
         android:background="#66000000"
         android:contentDescription="@string/take_gif"
         android:scaleType="centerCrop"

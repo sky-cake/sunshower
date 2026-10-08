@@ -17,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import org.ayasequart.sunshower.R
 import org.ayasequart.sunshower.gif.GifSaver
+import org.ayasequart.sunshower.ui.applySystemBarInsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -78,6 +79,9 @@ class KurobaActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_kuroba)
+        findViewById<View>(android.R.id.content).applySystemBarInsets(
+            (16 * resources.displayMetrics.density).toInt()
+        )
         val options = KurobaOptionsStore.load(this)
 
         statusText = findViewById(R.id.kuroba_status)

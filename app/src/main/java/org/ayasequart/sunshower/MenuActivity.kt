@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import org.ayasequart.sunshower.edit.EditorActivity
 import org.ayasequart.sunshower.kuroba.KurobaActivity
+import org.ayasequart.sunshower.ui.applySystemBarInsets
 
 class MenuActivity : ComponentActivity() {
 
@@ -35,5 +36,8 @@ class MenuActivity : ComponentActivity() {
         findViewById<View>(R.id.about_button).setOnClickListener {
             startActivity(Intent(this, AboutActivity::class.java))
         }
+        findViewById<View>(android.R.id.content).applySystemBarInsets(
+            (16 * resources.displayMetrics.density).toInt()
+        )
     }
 }

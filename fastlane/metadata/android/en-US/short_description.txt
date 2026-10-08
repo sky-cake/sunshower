@@ -1,0 +1,1 @@
+Capture GIFs from your camera, overlay images with shapes, and edit image metadata.

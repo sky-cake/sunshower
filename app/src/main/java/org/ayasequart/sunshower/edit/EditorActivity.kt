@@ -15,13 +15,12 @@ import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import org.ayasequart.sunshower.R
 import org.ayasequart.sunshower.gif.GifReader
 import org.ayasequart.sunshower.gif.GifSaver
 import org.ayasequart.sunshower.settings.SettingsStore
+import org.ayasequart.sunshower.ui.applySystemBarInsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -52,13 +51,9 @@ class EditorActivity : ComponentActivity() {
         statusText = findViewById(R.id.editor_status)
         borderRow = findViewById(R.id.border_row)
         strokeBar = findViewById(R.id.stroke_bar)
-        val buttons = findViewById<View>(R.id.editor_buttons)
-        ViewCompat.setOnApplyWindowInsetsListener(buttons) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val extra = (24 * resources.displayMetrics.density).toInt()
-            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, bars.bottom + extra)
-            WindowInsetsCompat.CONSUMED
-        }
+        findViewById<View>(android.R.id.content).applySystemBarInsets(
+            (24 * resources.displayMetrics.density).toInt()
+        )
         buildPalette()
 
         findViewById<Button>(R.id.add_rect_button).setOnClickListener {

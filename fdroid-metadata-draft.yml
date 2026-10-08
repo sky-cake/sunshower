@@ -1,0 +1,39 @@
+Categories:
+  - Graphics
+
+License: AGPL-3.0
+AuthorName: sky-cake
+SourceCode: https://github.com/sky-cake/sunshower
+IssueTracker: https://github.com/sky-cake/sunshower/issues
+Changelog: https://github.com/sky-cake/sunshower/releases
+
+AutoName: Sunshower
+RepoType: git
+Repo: https://github.com/sky-cake/sunshower
+
+Builds:
+  - versionName: 1.0.0
+    versionCode: 1
+    commit: v1.0.0
+    subdir: app
+    gradle:
+      - yes
+
+  - versionName: 1.1.0
+    versionCode: 110
+    commit: v1.1.0
+    subdir: app
+    gradle:
+      - yes
+
+  - versionName: 1.2.0
+    versionCode: 120
+    commit: v1.2.0
+    subdir: app
+    gradle:
+      - yes
+
+AutoUpdateMode: Version v%v
+UpdateCheckMode: Tags
+CurrentVersion: 1.2.0
+CurrentVersionCode: 120
