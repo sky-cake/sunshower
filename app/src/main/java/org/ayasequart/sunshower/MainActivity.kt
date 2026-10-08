@@ -3,13 +3,20 @@ package org.ayasequart.sunshower
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.net.Uri
 import android.os.Bundle
+import android.content.ContentUris
+import android.content.Intent
+import android.provider.MediaStore
 import android.util.Size
 import android.view.View
-import android.widget.Button
+import android.widget.ImageButton
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -27,6 +34,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import org.ayasequart.sunshower.gif.GifSaver
+import org.ayasequart.sunshower.settings.SettingsActivity
 import org.ayasequart.sunshower.settings.SettingsStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -40,10 +48,15 @@ import kotlin.math.roundToInt
 class MainActivity : ComponentActivity() {
 
     private lateinit var previewView: PreviewView
-    private lateinit var recordButton: Button
+    private lateinit var recordButton: ImageButton
+    private lateinit var switchCameraButton: ImageButton
+    private lateinit var settingsButton: ImageButton
+    private lateinit var thumbnailView: ImageView
     private lateinit var statusText: TextView
     private val cameraExecutor = Executors.newSingleThreadExecutor()
     private var recording = false
+    private var latestGifUri: Uri? = null
+    private var useFrontCamera = false
     private var lastFrameMs = 0L
     private var frameIndex = 0
     private var frameDir: File? = null
@@ -62,13 +75,29 @@ class MainActivity : ComponentActivity() {
         setContentView(R.layout.activity_main)
         previewView = findViewById(R.id.preview_view)
         recordButton = findViewById(R.id.record_button)
+        switchCameraButton = findViewById(R.id.switch_camera_button)
+        settingsButton = findViewById(R.id.settings_button)
+        thumbnailView = findViewById(R.id.thumbnail_view)
         statusText = findViewById(R.id.status_text)
         recordButton.setOnClickListener { toggleRecording() }
+        switchCameraButton.setOnClickListener { toggleCamera() }
+        settingsButton.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        thumbnailView.setOnClickListener { openLatestGif() }
+        updateThumbnail()
         val controls = findViewById<View>(R.id.controls)
         ViewCompat.setOnApplyWindowInsetsListener(controls) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val extra = (24 * resources.displayMetrics.density).toInt()
             view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, bars.bottom + extra)
+            WindowInsetsCompat.CONSUMED
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(thumbnailView) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val lp = view.layoutParams as FrameLayout.LayoutParams
+            lp.bottomMargin = (24 * resources.displayMetrics.density).toInt() + bars.bottom
+            view.requestLayout()
             WindowInsetsCompat.CONSUMED
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
@@ -102,9 +131,103 @@ class MainActivity : ComponentActivity() {
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
             analysis.setAnalyzer(cameraExecutor, ImageAnalysis.Analyzer { analyzeFrame(it) })
+            val selector = if (useFrontCamera) {
+                CameraSelector.DEFAULT_FRONT_CAMERA
+            } else {
+                CameraSelector.DEFAULT_BACK_CAMERA
+            }
             cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
+            try {
+                cameraProvider.bindToLifecycle(this, selector, preview, analysis)
+            } catch (e: IllegalArgumentException) {
+                useFrontCamera = !useFrontCamera
+                Toast.makeText(this, R.string.camera_unavailable, Toast.LENGTH_SHORT).show()
+            }
         }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun openLatestGif() {
+        if (recording) return
+        val uri = latestGifUri ?: return
+        try {
+            startActivity(
+                Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, "image/gif")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            )
+        } catch (e: Exception) {
+            Toast.makeText(this, R.string.no_viewer, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun updateThumbnail(uri: Uri? = null) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val target = uri ?: latestGifUriOrNull()
+            val bitmap = target?.let { decodeThumbnail(it) }
+            withContext(Dispatchers.Main) {
+                latestGifUri = target
+                if (bitmap != null) {
+                    thumbnailView.setImageBitmap(bitmap)
+                    thumbnailView.visibility = View.VISIBLE
+                } else {
+                    thumbnailView.visibility = View.GONE
+                }
+            }
+        }
+    }
+
+    private fun latestGifUriOrNull(): Uri? {
+        return try {
+            contentResolver.query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                arrayOf(MediaStore.MediaColumns._ID),
+                "${MediaStore.MediaColumns.MIME_TYPE}=?",
+                arrayOf("image/gif"),
+                "${MediaStore.MediaColumns._ID} DESC"
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    ContentUris.withAppendedId(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        cursor.getLong(0)
+                    )
+                } else {
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun decodeThumbnail(uri: Uri): Bitmap? {
+        return try {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, bounds)
+            }
+            var sample = 1
+            while (bounds.outWidth / (sample * 2) >= 128 && bounds.outHeight / (sample * 2) >= 128) {
+                sample *= 2
+            }
+            contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(
+                    it,
+                    null,
+                    BitmapFactory.Options().apply { inSampleSize = sample }
+                )
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun toggleCamera() {
+        if (recording) {
+            Toast.makeText(this, R.string.stop, Toast.LENGTH_SHORT).show()
+            return
+        }
+        useFrontCamera = !useFrontCamera
+        startCamera()
     }
 
     private fun analyzeFrame(image: ImageProxy) {
@@ -162,11 +285,17 @@ class MainActivity : ComponentActivity() {
             }
         }
         val rotation = image.imageInfo.rotationDegrees
-        val rotated = if (rotation == 0) {
+        var rotated = if (rotation == 0) {
             bitmap
         } else {
             val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
             Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        }
+        if (useFrontCamera) {
+            val matrix = Matrix().apply {
+                postScale(-1f, 1f, rotated.width / 2f, rotated.height / 2f)
+            }
+            rotated = Bitmap.createBitmap(rotated, 0, 0, rotated.width, rotated.height, matrix, true)
         }
         return scaleFrame(rotated)
     }
@@ -206,7 +335,8 @@ class MainActivity : ComponentActivity() {
     private fun toggleRecording() {
         if (recording) {
             recording = false
-            recordButton.setText(R.string.record)
+            recordButton.setBackgroundResource(R.drawable.shutter)
+            recordButton.contentDescription = getString(R.string.record)
             val dir = frameDir
             val count = frameIndex
             if (dir == null || count == 0) {
@@ -236,6 +366,7 @@ class MainActivity : ComponentActivity() {
                                 statusText.text = ""
                             }
                         }, 2000)
+                        updateThumbnail(uri)
                     }
                 }
             }
@@ -244,7 +375,8 @@ class MainActivity : ComponentActivity() {
             frameIndex = 0
             lastFrameMs = 0L
             recording = true
-            recordButton.setText(R.string.stop)
+            recordButton.setBackgroundResource(R.drawable.shutter_recording)
+            recordButton.contentDescription = getString(R.string.stop)
             statusText.setText(R.string.recording)
         }
     }

@@ -2,12 +2,12 @@ package org.ayasequart.sunshower
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import org.ayasequart.sunshower.edit.EditorActivity
 import org.ayasequart.sunshower.kuroba.KurobaActivity
-import org.ayasequart.sunshower.settings.SettingsActivity
 
 class MenuActivity : ComponentActivity() {
 
@@ -32,8 +32,8 @@ class MenuActivity : ComponentActivity() {
         findViewById<Button>(R.id.kuroba_menu_button).setOnClickListener {
             startActivity(Intent(this, KurobaActivity::class.java))
         }
-        findViewById<Button>(R.id.settings_menu_button).setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+        findViewById<View>(R.id.about_button).setOnClickListener {
+            startActivity(Intent(this, AboutActivity::class.java))
         }
     }
 }

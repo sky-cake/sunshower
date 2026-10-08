@@ -6,10 +6,11 @@ import android.graphics.Canvas
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.app.AlertDialog
 import android.provider.OpenableColumns
+import android.view.Gravity
 import android.view.View
 import android.widget.Button
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
@@ -36,6 +37,8 @@ class EditorActivity : ComponentActivity() {
     private lateinit var borderRow: View
     private lateinit var strokeBar: SeekBar
     private val paletteSwatches = ArrayList<Pair<View, GradientDrawable>>()
+    private val recentSwatchViews = ArrayList<View>()
+    private val recentColors = ArrayList<Int>()
     private var sourceUri: Uri? = null
     private var frames: List<Bitmap>? = null
     private var isGif = false
@@ -195,42 +198,166 @@ class EditorActivity : ComponentActivity() {
     private fun buildPalette() {
         val row = findViewById<LinearLayout>(R.id.palette_row)
         val density = resources.displayMetrics.density
+        row.addView(createPickerSwatch(density))
         for (color in PALETTE) {
-            val shape = GradientDrawable()
-            shape.shape = GradientDrawable.RECTANGLE
-            shape.cornerRadius = 8 * density
-            shape.setColor(color)
-            val swatch = View(this)
-            val lp = LinearLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt())
-            lp.marginEnd = (8 * density).toInt()
-            swatch.layoutParams = lp
-            swatch.background = shape
-            swatch.setOnClickListener {
-                selectedColor = color
-                for ((v, s) in paletteSwatches) {
-                    s.setStroke((2 * density).toInt(), android.graphics.Color.TRANSPARENT)
-                }
-                shape.setStroke((3 * density).toInt(), android.graphics.Color.WHITE)
-                overlayView.updateSelectedColor(color)
-            }
-            paletteSwatches.add(swatch to shape)
-            row.addView(swatch)
+            row.addView(createSwatch(color, density))
+        }
+        for (color in loadRecentColors()) {
+            recentColors.add(color)
+            recentSwatchViews.add(createSwatch(color, density).also { row.addView(it) })
         }
         paletteSwatches.first().second.setStroke((3 * density).toInt(), android.graphics.Color.WHITE)
+    }
+
+    private fun createPickerSwatch(density: Float): View {
+        val rainbow = TextView(this)
+        val lp = LinearLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt())
+        lp.marginEnd = (8 * density).toInt()
+        rainbow.layoutParams = lp
+        rainbow.gravity = Gravity.CENTER
+        rainbow.text = "+"
+        rainbow.setTextColor(android.graphics.Color.WHITE)
+        rainbow.textSize = 22f
+        rainbow.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 8 * density
+            orientation = GradientDrawable.Orientation.LEFT_RIGHT
+            colors = intArrayOf(
+                0xFFE53935.toInt(),
+                0xFFFDD835.toInt(),
+                0xFF43A047.toInt(),
+                0xFF1E88E5.toInt(),
+                0xFF8E24AA.toInt()
+            )
+        }
+        rainbow.setOnClickListener { showColorPicker() }
+        return rainbow
+    }
+
+    private fun createSwatch(color: Int, density: Float): View {
+        val shape = GradientDrawable()
+        shape.shape = GradientDrawable.RECTANGLE
+        shape.cornerRadius = 8 * density
+        shape.setColor(color)
+        val swatch = View(this)
+        val lp = LinearLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt())
+        lp.marginEnd = (8 * density).toInt()
+        swatch.layoutParams = lp
+        swatch.background = shape
+        swatch.setOnClickListener {
+            selectedColor = color
+            highlightSwatch(shape, density)
+            overlayView.updateSelectedColor(color)
+        }
+        paletteSwatches.add(swatch to shape)
+        return swatch
+    }
+
+    private fun highlightSwatch(shape: GradientDrawable, density: Float) {
+        for ((_, s) in paletteSwatches) {
+            s.setStroke((2 * density).toInt(), android.graphics.Color.TRANSPARENT)
+        }
+        shape.setStroke((3 * density).toInt(), android.graphics.Color.WHITE)
+    }
+
+    private fun addCustomSwatch(color: Int) {
+        saveRecentColor(color)
+        rebuildRecentSwatches()
+        recentSwatchViews.firstOrNull()?.performClick() ?: run {
+            selectedColor = color
+            overlayView.updateSelectedColor(color)
+        }
+    }
+
+    private fun rebuildRecentSwatches() {
+        val row = findViewById<LinearLayout>(R.id.palette_row)
+        val old = ArrayList(recentSwatchViews)
+        for (v in old) {
+            row.removeView(v)
+        }
+        for (i in paletteSwatches.indices.reversed()) {
+            if (paletteSwatches[i].first in old) {
+                paletteSwatches.removeAt(i)
+            }
+        }
+        recentSwatchViews.clear()
+        val density = resources.displayMetrics.density
+        for (color in recentColors) {
+            val view = createSwatch(color, density)
+            recentSwatchViews.add(view)
+            row.addView(view)
+        }
+    }
+
+    private fun saveRecentColor(color: Int) {
+        recentColors.remove(color)
+        recentColors.add(0, color)
+        while (recentColors.size > 3) {
+            recentColors.removeAt(recentColors.size - 1)
+        }
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+            .putString(KEY_RECENT_COLORS, recentColors.joinToString(",") { "%08X".format(it) })
+            .apply()
+    }
+
+    private fun loadRecentColors(): List<Int> {
+        return try {
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getString(KEY_RECENT_COLORS, null)
+                ?.split(',')
+                ?.mapNotNull { it.trim().takeIf { s -> s.isNotEmpty() }?.toLong(16)?.toInt() }
+                .orEmpty()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun showColorPicker() {
+        val density = resources.displayMetrics.density
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val pad = (24 * density).toInt()
+            setPadding(pad, pad / 2, pad, 0)
+        }
+        val picker = ColorPickerView(this)
+        picker.setInitialColor(selectedColor)
+        val pickerLp = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        pickerLp.bottomMargin = (8 * density).toInt()
+        container.addView(picker, pickerLp)
+        val preview = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (48 * density).toInt()
+            )
+            setBackgroundColor(selectedColor)
+        }
+        container.addView(preview)
+        picker.onColorChanged = { c -> preview.setBackgroundColor(c) }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.color_picker_title)
+            .setView(container)
+            .setPositiveButton(R.string.done) { _, _ ->
+                addCustomSwatch(picker.color)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     companion object {
         private const val SAVED_MESSAGE_MS = 3000L
         const val EXTRA_URI = "uri"
+        private const val PREFS_NAME = "editor_palette"
+        private const val KEY_RECENT_COLORS = "recent_colors"
         private val PALETTE = intArrayOf(
             0xFF212121.toInt(),
-            0xFFE53935.toInt(),
-            0xFF43A047.toInt(),
+            0xFFFAFAFA.toInt(),
             0xFF1E88E5.toInt(),
-            0xFFFDD835.toInt(),
-            0xFF8E24AA.toInt(),
-            0xFFFB8C00.toInt(),
-            0xFFFAFAFA.toInt()
+            0xFF43A047.toInt(),
+            0xFFE53935.toInt()
         )
     }
 }

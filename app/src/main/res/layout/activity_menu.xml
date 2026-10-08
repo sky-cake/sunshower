@@ -1,43 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:gravity="center"
-    android:orientation="vertical"
-    android:padding="32dp">
+    android:layout_height="match_parent">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="48dp"
-        android:text="@string/app_name"
-        android:textSize="36sp"
-        android:textStyle="bold" />
-
-    <Button
-        android:id="@+id/take_gif_button"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:text="@string/take_gif" />
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="32dp">
 
-    <Button
-        android:id="@+id/settings_menu_button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:text="@string/settings" />
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="48dp"
+            android:adjustViewBounds="true"
+            android:contentDescription="@string/app_name"
+            android:maxHeight="220dp"
+            android:src="@drawable/logo" />
 
-    <Button
-        android:id="@+id/edit_menu_button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:text="@string/edit" />
+        <Button
+            android:id="@+id/take_gif_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="@string/take_gif" />
 
-    <Button
-        android:id="@+id/kuroba_menu_button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/kuroba" />
-</LinearLayout>
+        <Button
+            android:id="@+id/edit_menu_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="@string/edit" />
+
+        <Button
+            android:id="@+id/kuroba_menu_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/kuroba" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/about_button"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="16dp"
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/about"
+        android:src="@drawable/ic_info"
+        android:tint="#888888" />
+</FrameLayout>

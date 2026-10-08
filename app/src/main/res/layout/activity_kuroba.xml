@@ -84,7 +84,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:orientation="vertical">
+            android:orientation="horizontal">
 
             <RadioButton
                 android:id="@+id/reencode_as_is"
@@ -96,12 +96,14 @@
                 android:id="@+id/reencode_as_jpeg"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
                 android:text="@string/reencode_jpeg" />
 
             <RadioButton
                 android:id="@+id/reencode_as_png"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
                 android:text="@string/reencode_png" />
         </RadioGroup>
 
