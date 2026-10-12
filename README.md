@@ -17,5 +17,3 @@ See if its what you're looking for, here are some screenshots.
 ![alt text](fastlane/metadata/android/en-US/images/phoneScreenshots/03_gif_settings.png)
 ![alt text](fastlane/metadata/android/en-US/images/phoneScreenshots/04_edit.png)
 ![alt text](fastlane/metadata/android/en-US/images/phoneScreenshots/05_kuroba.png)
-
-<a href="https://f-droid.org/packages/org.ayasequart.sunshower/"><img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="80"></a>
