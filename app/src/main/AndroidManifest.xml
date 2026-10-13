@@ -44,6 +44,10 @@
             android:exported="false"
             android:label="@string/kuroba" />
         <activity
+            android:name=".video.VideoActivity"
+            android:exported="false"
+            android:label="@string/video_title" />
+        <activity
             android:name=".edit.EditorActivity"
             android:exported="false"
             android:label="@string/editor_title"

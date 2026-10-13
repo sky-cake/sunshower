@@ -7,9 +7,8 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.app.AlertDialog
-import android.provider.OpenableColumns
-import android.view.Gravity
 import android.view.View
+import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -21,6 +20,7 @@ import org.ayasequart.sunshower.gif.GifReader
 import org.ayasequart.sunshower.gif.GifSaver
 import org.ayasequart.sunshower.settings.SettingsStore
 import org.ayasequart.sunshower.ui.applySystemBarInsets
+import org.ayasequart.sunshower.util.displayName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -169,14 +169,7 @@ class EditorActivity : ComponentActivity() {
 
     private fun sourceNameBase(): String {
         val uri = sourceUri ?: return SettingsStore.DEFAULT_FILE_NAME
-        val name = try {
-            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                ?.use { cursor ->
-                    if (cursor.moveToFirst()) cursor.getString(0) else null
-                }
-        } catch (e: Exception) {
-            null
-        }
+        val name = uri.displayName(this)
         val base = name?.let { n -> n.substringBeforeLast('.').trim() }.orEmpty()
         return base.ifEmpty { SettingsStore.DEFAULT_FILE_NAME }
     }

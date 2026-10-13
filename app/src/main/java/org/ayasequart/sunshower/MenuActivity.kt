@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import org.ayasequart.sunshower.edit.EditorActivity
 import org.ayasequart.sunshower.kuroba.KurobaActivity
 import org.ayasequart.sunshower.ui.applySystemBarInsets
+import org.ayasequart.sunshower.video.VideoActivity
 
 class MenuActivity : ComponentActivity() {
 
@@ -32,6 +33,9 @@ class MenuActivity : ComponentActivity() {
         }
         findViewById<Button>(R.id.kuroba_menu_button).setOnClickListener {
             startActivity(Intent(this, KurobaActivity::class.java))
+        }
+        findViewById<Button>(R.id.video_menu_button).setOnClickListener {
+            startActivity(Intent(this, VideoActivity::class.java))
         }
         findViewById<View>(R.id.about_button).setOnClickListener {
             startActivity(Intent(this, AboutActivity::class.java))

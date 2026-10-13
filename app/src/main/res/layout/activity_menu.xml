@@ -35,6 +35,13 @@
             android:text="@string/edit" />
 
         <Button
+            android:id="@+id/video_menu_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="@string/menu_video" />
+
+        <Button
             android:id="@+id/kuroba_menu_button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-import android.provider.OpenableColumns
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
@@ -18,6 +17,9 @@ import androidx.lifecycle.lifecycleScope
 import org.ayasequart.sunshower.R
 import org.ayasequart.sunshower.gif.GifSaver
 import org.ayasequart.sunshower.ui.applySystemBarInsets
+import org.ayasequart.sunshower.util.displayName
+import org.ayasequart.sunshower.util.fileSize
+import org.ayasequart.sunshower.util.formatBytes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -59,17 +61,25 @@ class KurobaActivity : ComponentActivity() {
             currentFormat = contentResolver.openInputStream(uri)?.use {
                 ImageReencoder.getImageFormat(it)
             }
-            val fullName = displayName(uri)
+            val fullName = uri.displayName(this)
             if (fullName != null) {
                 val base = fullName.substringBeforeLast('.').trim()
                 if (base.isNotEmpty()) {
                     fileNameInput.setText(base)
                 }
             }
-            fileInfoText.text = if (fullName != null) {
-                getString(R.string.kuroba_file_info, fullName)
-            } else {
+            val parts = ArrayList<String>()
+            if (pickedWidth > 0 && pickedHeight > 0) {
+                parts.add("${pickedWidth}×${pickedHeight}")
+            }
+            val sizeBytes = uri.fileSize(this)
+            if (sizeBytes > 0) {
+                parts.add(formatBytes(sizeBytes))
+            }
+            fileInfoText.text = if (parts.isEmpty()) {
                 ""
+            } else {
+                getString(R.string.kuroba_file_info, parts.joinToString(", "))
             }
             updateExtLabel()
             updateReduceLabel(reduceBar.progress)
@@ -273,17 +283,6 @@ class KurobaActivity : ComponentActivity() {
             }
         } finally {
             withContext(Dispatchers.Main) { setBusy(false) }
-        }
-    }
-
-    private fun displayName(uri: Uri): String? {
-        return try {
-            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                ?.use { cursor ->
-                    if (cursor.moveToFirst()) cursor.getString(0) else null
-                }
-        } catch (e: Exception) {
-            null
         }
     }
 

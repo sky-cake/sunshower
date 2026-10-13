@@ -8,7 +8,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="16dp"
-        android:paddingTop="48dp">
+        android:paddingTop="64dp">
 
         <TextView
             android:layout_width="wrap_content"
