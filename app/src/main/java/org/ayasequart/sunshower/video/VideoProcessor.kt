@@ -190,11 +190,15 @@ object VideoProcessor {
                 } ?: throw IllegalStateException("no video track")
                 val inFormat = extractor.getTrackFormat(trackIndex)
                 extractor.selectTrack(trackIndex)
+                val isMp4 = containerMime != "video/webm"
                 val muxerFormat =
-                    if (containerMime == "video/webm") MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM
-                    else MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
+                    if (isMp4) MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
+                    else MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM
                 val muxer = MediaMuxer(outFile.absolutePath, muxerFormat)
                 try {
+                    if (isMp4 && inFormat.containsKey(MediaFormat.KEY_ROTATION)) {
+                        muxer.setOrientationHint(inFormat.getInteger(MediaFormat.KEY_ROTATION))
+                    }
                     val dst = muxer.addTrack(inFormat)
                     muxer.start()
                     val maxSize = if (inFormat.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
