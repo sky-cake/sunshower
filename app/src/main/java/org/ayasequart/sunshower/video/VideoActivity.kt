@@ -244,10 +244,6 @@ class VideoActivity : ComponentActivity() {
         return CompressChoice(videoMime, container, audioMime)
     }
 
-    private fun removeAudioContainer(): String {
-        return if (altSelected()) altContainer() else defaultContainer()
-    }
-
     private fun mode(): Int = when (modeGroup.checkedRadioButtonId) {
         R.id.radio_mode_remove_audio -> MODE_REMOVE_AUDIO
         R.id.radio_mode_extract_audio -> MODE_EXTRACT_AUDIO
@@ -372,8 +368,7 @@ class VideoActivity : ComponentActivity() {
     private fun updateModeVisibility() {
         val m = mode()
         compressSection.visibility = if (m == MODE_COMPRESS) View.VISIBLE else View.GONE
-        videoFormatSection.visibility =
-            if (m == MODE_COMPRESS || m == MODE_REMOVE_AUDIO) View.VISIBLE else View.GONE
+        videoFormatSection.visibility = if (m == MODE_COMPRESS) View.VISIBLE else View.GONE
         audioQualitySection.visibility = if (audioReencodeNeeded()) View.VISIBLE else View.GONE
         audioQualityRow.visibility =
             if (audioQualitySwitch.isChecked) View.VISIBLE else View.GONE
@@ -411,7 +406,7 @@ class VideoActivity : ComponentActivity() {
             } else {
                 ".mp4"
             }
-            MODE_REMOVE_AUDIO -> if (removeAudioContainer() == "video/webm") ".webm" else ".mp4"
+            MODE_REMOVE_AUDIO -> ".mp4"
             else -> ".m4a"
         }
     }
@@ -496,49 +491,24 @@ class VideoActivity : ComponentActivity() {
                     )
                 }
                 MODE_REMOVE_AUDIO -> {
-                    val keep = i.videoMime
-                    val container = removeAudioContainer()
-                    val remuxContainer = when (keep) {
-                        MimeTypes.VIDEO_VP8, MimeTypes.VIDEO_VP9 -> "video/webm"
-                        MimeTypes.VIDEO_H264, MimeTypes.VIDEO_H265,
-                        MimeTypes.VIDEO_MP4V, MimeTypes.VIDEO_H263 -> "video/mp4"
-                        else -> null
-                    }
-                    val fileExt = if (container == "video/webm") ".webm" else ".mp4"
-                    val outFile = File(dir, "out_${System.currentTimeMillis()}$fileExt")
-                    if (remuxContainer != null && remuxContainer == container) {
-                        VideoProcessor.stripAudio(this@VideoActivity, uri, outFile, container)
-                    } else {
-                        try {
-                            VideoProcessor.runTransformer(
-                                this@VideoActivity,
-                                uri,
-                                outFile,
-                                removeAudio = true,
-                                targetHeight = null,
-                                targetFps = null,
-                                videoMime = if (remuxContainer == null) MimeTypes.VIDEO_H264 else null,
-                                audioMime = null,
-                                videoBitrateBps = null,
-                                audioBitrateBps = null,
-                                onProgress = { p -> runOnUiThread { updateProgress(p) } }
-                            )
-                        } catch (e: Exception) {
-                            outFile.delete()
-                            VideoProcessor.runTransformer(
-                                this@VideoActivity,
-                                uri,
-                                outFile,
-                                removeAudio = true,
-                                targetHeight = null,
-                                targetFps = null,
-                                videoMime = MimeTypes.VIDEO_H264,
-                                audioMime = null,
-                                videoBitrateBps = null,
-                                audioBitrateBps = null,
-                                onProgress = { p -> runOnUiThread { updateProgress(p) } }
-                            )
-                        }
+                    val outFile = File(dir, "out_${System.currentTimeMillis()}.mp4")
+                    try {
+                        VideoProcessor.stripAudio(this@VideoActivity, uri, outFile, "video/mp4")
+                    } catch (e: Exception) {
+                        outFile.delete()
+                        VideoProcessor.runTransformer(
+                            this@VideoActivity,
+                            uri,
+                            outFile,
+                            removeAudio = true,
+                            targetHeight = null,
+                            targetFps = null,
+                            videoMime = MimeTypes.VIDEO_H264,
+                            audioMime = null,
+                            videoBitrateBps = null,
+                            audioBitrateBps = null,
+                            onProgress = { p -> runOnUiThread { updateProgress(p) } }
+                        )
                     }
                 }
                 else -> {
