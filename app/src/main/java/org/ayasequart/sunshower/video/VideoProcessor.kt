@@ -172,6 +172,59 @@ object VideoProcessor {
         return if (file.name.endsWith(".webm")) "video/webm" else "video/mp4"
     }
 
+    suspend fun stripAudio(
+        context: Context,
+        uri: Uri,
+        outFile: File,
+        containerMime: String
+    ): VideoOutput = withContext(Dispatchers.IO) {
+        val pfd = context.contentResolver.openFileDescriptor(uri, "r")
+            ?: throw IllegalStateException("cannot open file")
+        pfd.use {
+            val extractor = MediaExtractor()
+            try {
+                extractor.setDataSource(pfd.fileDescriptor)
+                val trackIndex = (0 until extractor.trackCount).firstOrNull {
+                    extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)
+                        ?.startsWith("video/") == true
+                } ?: throw IllegalStateException("no video track")
+                val inFormat = extractor.getTrackFormat(trackIndex)
+                extractor.selectTrack(trackIndex)
+                val muxerFormat =
+                    if (containerMime == "video/webm") MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM
+                    else MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
+                val muxer = MediaMuxer(outFile.absolutePath, muxerFormat)
+                try {
+                    val dst = muxer.addTrack(inFormat)
+                    muxer.start()
+                    val maxSize = if (inFormat.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
+                        inFormat.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE)
+                    } else {
+                        1 shl 20
+                    }
+                    val buffer = ByteBuffer.allocateDirect(maxSize)
+                    val info = MediaCodec.BufferInfo()
+                    while (true) {
+                        val size = extractor.readSampleData(buffer, 0)
+                        if (size < 0) break
+                        info.size = size
+                        info.presentationTimeUs = extractor.sampleTime
+                        info.flags = extractor.sampleFlags
+                        info.offset = 0
+                        muxer.writeSampleData(dst, buffer, info)
+                        extractor.advance()
+                    }
+                    muxer.stop()
+                } finally {
+                    muxer.release()
+                }
+            } finally {
+                extractor.release()
+            }
+        }
+        VideoOutput(outFile, containerMime)
+    }
+
     private fun isEmulator(): Boolean {
         return Build.FINGERPRINT.startsWith("generic") ||
             Build.FINGERPRINT.contains("emulator") ||

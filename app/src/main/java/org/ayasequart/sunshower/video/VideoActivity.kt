@@ -497,39 +497,48 @@ class VideoActivity : ComponentActivity() {
                 }
                 MODE_REMOVE_AUDIO -> {
                     val keep = i.videoMime
-                    val keepable = keep != null && keep in KEEPABLE && encoderAvailable(keep)
-                    val container = if (keepable) removeAudioContainer() else "video/mp4"
+                    val container = removeAudioContainer()
+                    val remuxContainer = when (keep) {
+                        MimeTypes.VIDEO_VP8, MimeTypes.VIDEO_VP9 -> "video/webm"
+                        MimeTypes.VIDEO_H264, MimeTypes.VIDEO_H265,
+                        MimeTypes.VIDEO_MP4V, MimeTypes.VIDEO_H263 -> "video/mp4"
+                        else -> null
+                    }
                     val fileExt = if (container == "video/webm") ".webm" else ".mp4"
                     val outFile = File(dir, "out_${System.currentTimeMillis()}$fileExt")
-                    try {
-                        VideoProcessor.runTransformer(
-                            this@VideoActivity,
-                            uri,
-                            outFile,
-                            removeAudio = true,
-                            targetHeight = null,
-                            targetFps = null,
-                            videoMime = if (keepable) null else MimeTypes.VIDEO_H264,
-                            audioMime = null,
-                            videoBitrateBps = null,
-                            audioBitrateBps = null,
-                            onProgress = { p -> runOnUiThread { updateProgress(p) } }
-                        )
-                    } catch (e: Exception) {
-                        outFile.delete()
-                        VideoProcessor.runTransformer(
-                            this@VideoActivity,
-                            uri,
-                            outFile,
-                            removeAudio = true,
-                            targetHeight = null,
-                            targetFps = null,
-                            videoMime = MimeTypes.VIDEO_H264,
-                            audioMime = null,
-                            videoBitrateBps = null,
-                            audioBitrateBps = null,
-                            onProgress = { p -> runOnUiThread { updateProgress(p) } }
-                        )
+                    if (remuxContainer != null && remuxContainer == container) {
+                        VideoProcessor.stripAudio(this@VideoActivity, uri, outFile, container)
+                    } else {
+                        try {
+                            VideoProcessor.runTransformer(
+                                this@VideoActivity,
+                                uri,
+                                outFile,
+                                removeAudio = true,
+                                targetHeight = null,
+                                targetFps = null,
+                                videoMime = if (remuxContainer == null) MimeTypes.VIDEO_H264 else null,
+                                audioMime = null,
+                                videoBitrateBps = null,
+                                audioBitrateBps = null,
+                                onProgress = { p -> runOnUiThread { updateProgress(p) } }
+                            )
+                        } catch (e: Exception) {
+                            outFile.delete()
+                            VideoProcessor.runTransformer(
+                                this@VideoActivity,
+                                uri,
+                                outFile,
+                                removeAudio = true,
+                                targetHeight = null,
+                                targetFps = null,
+                                videoMime = MimeTypes.VIDEO_H264,
+                                audioMime = null,
+                                videoBitrateBps = null,
+                                audioBitrateBps = null,
+                                onProgress = { p -> runOnUiThread { updateProgress(p) } }
+                            )
+                        }
                     }
                 }
                 else -> {
