@@ -4,12 +4,12 @@ import android.view.View
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
-fun View.applySystemBarInsets(extraBottomPx: Int = 0) {
+fun View.applySystemBarInsets(extraTopPx: Int = 0, extraBottomPx: Int = 0) {
     ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
         val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
         view.setPadding(
             view.paddingLeft,
-            view.paddingTop,
+            bars.top + extraTopPx,
             view.paddingRight,
             bars.bottom + extraBottomPx
         )

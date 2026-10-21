@@ -13,7 +13,7 @@ class AboutActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_about)
         findViewById<View>(android.R.id.content).applySystemBarInsets(
-            (16 * resources.displayMetrics.density).toInt()
+            extraBottomPx = (16 * resources.displayMetrics.density).toInt()
         )
         val version = try {
             packageManager.getPackageInfo(packageName, 0).versionName

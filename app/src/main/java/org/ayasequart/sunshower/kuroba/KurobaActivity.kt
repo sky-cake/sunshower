@@ -16,6 +16,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import org.ayasequart.sunshower.R
 import org.ayasequart.sunshower.gif.GifSaver
+import org.ayasequart.sunshower.ui.BusySpinner
 import org.ayasequart.sunshower.ui.applySystemBarInsets
 import org.ayasequart.sunshower.util.displayName
 import org.ayasequart.sunshower.util.fileSize
@@ -51,6 +52,7 @@ class KurobaActivity : ComponentActivity() {
     private var pickedHeight = 0
     private var currentFormat: Bitmap.CompressFormat? = null
     private var savedMessageJob: Job? = null
+    private val busySpinner = BusySpinner(this)
 
     private val pickMedia = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -90,7 +92,8 @@ class KurobaActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_kuroba)
         findViewById<View>(android.R.id.content).applySystemBarInsets(
-            (16 * resources.displayMetrics.density).toInt()
+            extraTopPx = (24 * resources.displayMetrics.density).toInt(),
+            extraBottomPx = (16 * resources.displayMetrics.density).toInt()
         )
         val options = KurobaOptionsStore.load(this)
 
@@ -289,6 +292,7 @@ class KurobaActivity : ComponentActivity() {
     private fun setBusy(busy: Boolean) {
         pickButton.isEnabled = !busy
         applyButton.isEnabled = !busy && pickedUri != null
+        if (busy) busySpinner.show() else busySpinner.hide()
     }
 
     private fun onSaved() {

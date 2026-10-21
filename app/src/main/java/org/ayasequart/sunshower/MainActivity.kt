@@ -85,9 +85,8 @@ class MainActivity : ComponentActivity() {
         thumbnailView.setOnClickListener { openLatestGif() }
         updateThumbnail()
         val content = findViewById<View>(android.R.id.content)
-        content.setBackgroundColor(android.graphics.Color.BLACK)
         content.applySystemBarInsets(
-            (24 * resources.displayMetrics.density).toInt()
+            extraBottomPx = (24 * resources.displayMetrics.density).toInt()
         )
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
             PackageManager.PERMISSION_GRANTED

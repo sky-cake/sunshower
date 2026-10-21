@@ -13,14 +13,16 @@ import org.ayasequart.sunshower.video.VideoActivity
 
 class MenuActivity : ComponentActivity() {
 
-    private val pickMedia = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            startActivity(
-                Intent(this, EditorActivity::class.java)
-                    .putExtra(EditorActivity.EXTRA_URI, uri.toString())
-            )
+    private val pickMedia =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                startActivity(
+                    Intent(this, EditorActivity::class.java)
+                        .putExtra(EditorActivity.EXTRA_URI, uri.toString())
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                )
+            }
         }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,7 +31,7 @@ class MenuActivity : ComponentActivity() {
             startActivity(Intent(this, MainActivity::class.java))
         }
         findViewById<Button>(R.id.edit_menu_button).setOnClickListener {
-            pickMedia.launch("image/*")
+            pickMedia.launch(arrayOf("image/*", "video/*"))
         }
         findViewById<Button>(R.id.kuroba_menu_button).setOnClickListener {
             startActivity(Intent(this, KurobaActivity::class.java))
@@ -41,7 +43,7 @@ class MenuActivity : ComponentActivity() {
             startActivity(Intent(this, AboutActivity::class.java))
         }
         findViewById<View>(android.R.id.content).applySystemBarInsets(
-            (16 * resources.displayMetrics.density).toInt()
+            extraBottomPx = (16 * resources.displayMetrics.density).toInt()
         )
     }
 }

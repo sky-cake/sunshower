@@ -12,8 +12,8 @@ android {
         applicationId = "org.ayasequart.sunshower"
         minSdk = 24
         targetSdk = 37
-        versionCode = 120
-        versionName = "1.3.3"
+        versionCode = 140
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -1,18 +1,23 @@
 package org.ayasequart.sunshower.video
 
-import android.media.MediaCodecList
+import android.graphics.Bitmap
+import android.graphics.RectF
 import android.media.MediaFormat
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.SeekBar
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,6 +29,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.ayasequart.sunshower.R
+import org.ayasequart.sunshower.edit.CropUtils
+import org.ayasequart.sunshower.edit.OverlayView
+import org.ayasequart.sunshower.settings.SettingsStore
+import org.ayasequart.sunshower.ui.BusySpinner
 import org.ayasequart.sunshower.ui.applySystemBarInsets
 import org.ayasequart.sunshower.util.displayName
 import org.ayasequart.sunshower.util.formatBytes
@@ -40,27 +49,40 @@ class VideoActivity : ComponentActivity() {
     private lateinit var pickButton: Button
     private lateinit var applyButton: Button
     private lateinit var fileNameInput: EditText
-    private lateinit var modeGroup: RadioGroup
-    private lateinit var compressSection: View
-    private lateinit var resolutionGroup: RadioGroup
-    private lateinit var fpsGroup: RadioGroup
+    private lateinit var resolutionSpinner: Spinner
+    private lateinit var fpsSpinner: Spinner
     private lateinit var qualityValue: TextView
     private lateinit var qualityBar: SeekBar
-    private lateinit var videoFormatSection: View
     private lateinit var videoFormatGroup: RadioGroup
     private lateinit var videoDefaultRadio: RadioButton
     private lateinit var videoAltRadio: RadioButton
-    private lateinit var audioQualitySection: View
+    private lateinit var audioRemoveSwitch: CheckBox
     private lateinit var audioQualitySwitch: CheckBox
     private lateinit var audioQualityRow: View
     private lateinit var audioQualityValue: TextView
     private lateinit var audioQualityBar: SeekBar
+    private lateinit var audioExtractButton: Button
+    private lateinit var audioNoAudioText: TextView
     private lateinit var estimateText: TextView
+    private lateinit var videoOverlay: OverlayView
+    private lateinit var videoCropButton: Button
+    private lateinit var videoCropApply: Button
+    private lateinit var cropAspectSpinner: Spinner
+    private lateinit var sectionVideo: View
+    private lateinit var sectionCrop: View
+    private lateinit var sectionAudio: View
+    private lateinit var videoTabCrop: Button
+    private lateinit var videoTabVideo: Button
+    private lateinit var videoTabAudio: Button
+    private var section = SECTION_VIDEO
 
     private var pickedUri: Uri? = null
     private var info: VideoInfo? = null
     private var savedMessageJob: Job? = null
     private var busy = false
+    private var cropRect: RectF? = null
+    private var decodedFrame: Bitmap? = null
+    private val busySpinner = BusySpinner(this)
 
     private var opusAvailable = false
     private var h264Available = false
@@ -80,7 +102,8 @@ class VideoActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_video)
         findViewById<View>(android.R.id.content).applySystemBarInsets(
-            (16 * resources.displayMetrics.density).toInt()
+            extraTopPx = (24 * resources.displayMetrics.density).toInt(),
+            extraBottomPx = (16 * resources.displayMetrics.density).toInt()
         )
 
         statusText = findViewById(R.id.video_status)
@@ -89,22 +112,35 @@ class VideoActivity : ComponentActivity() {
         pickButton = findViewById(R.id.video_pick_button)
         applyButton = findViewById(R.id.video_apply_button)
         fileNameInput = findViewById(R.id.video_file_name_input)
-        modeGroup = findViewById(R.id.video_mode_group)
-        compressSection = findViewById(R.id.video_compress_section)
-        resolutionGroup = findViewById(R.id.video_resolution_group)
-        fpsGroup = findViewById(R.id.video_fps_group)
+        resolutionSpinner = findViewById(R.id.video_resolution_spinner)
+        fpsSpinner = findViewById(R.id.video_fps_spinner)
         qualityValue = findViewById(R.id.video_quality_value)
         qualityBar = findViewById(R.id.video_quality_bar)
-        videoFormatSection = findViewById(R.id.video_format_section)
         videoFormatGroup = findViewById(R.id.video_format_group)
         videoDefaultRadio = findViewById(R.id.radio_video_fmt_default)
         videoAltRadio = findViewById(R.id.radio_video_fmt_alt)
-        audioQualitySection = findViewById(R.id.audio_quality_section)
+        audioRemoveSwitch = findViewById(R.id.audio_remove_switch)
         audioQualitySwitch = findViewById(R.id.audio_quality_switch)
         audioQualityRow = findViewById(R.id.audio_quality_row)
         audioQualityValue = findViewById(R.id.audio_quality_value)
         audioQualityBar = findViewById(R.id.audio_quality_bar)
+        audioExtractButton = findViewById(R.id.audio_extract_button)
+        audioNoAudioText = findViewById(R.id.audio_no_audio)
         estimateText = findViewById(R.id.video_estimate)
+        videoOverlay = findViewById(R.id.video_overlay_view)
+        videoCropButton = findViewById(R.id.video_crop_button)
+        videoCropApply = findViewById(R.id.video_crop_apply)
+        cropAspectSpinner = findViewById(R.id.video_crop_aspect_spinner)
+        sectionVideo = findViewById(R.id.section_video)
+        sectionCrop = findViewById(R.id.section_crop)
+        sectionAudio = findViewById(R.id.section_audio)
+        videoTabCrop = findViewById(R.id.video_tab_crop)
+        videoTabVideo = findViewById(R.id.video_tab_video)
+        videoTabAudio = findViewById(R.id.video_tab_audio)
+        videoTabCrop.setOnClickListener { selectSection(SECTION_CROP) }
+        videoTabVideo.setOnClickListener { selectSection(SECTION_VIDEO) }
+        videoTabAudio.setOnClickListener { selectSection(SECTION_AUDIO) }
+        setupCropControls()
 
         qualityBar.progress = 4
         qualityValue.text = getString(R.string.video_quality_value, 5)
@@ -118,6 +154,31 @@ class VideoActivity : ComponentActivity() {
 
             override fun onStopTrackingTouch(bar: SeekBar) {}
         })
+
+        resolutionSpinner.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            listOf(
+                getString(R.string.video_res_original),
+                getString(R.string.video_res_320),
+                getString(R.string.video_res_480),
+                getString(R.string.video_res_640),
+                getString(R.string.video_res_720)
+            )
+        ).also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
+        resolutionSpinner.setSelection(0)
+
+        fpsSpinner.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            listOf(
+                getString(R.string.video_fps_original),
+                getString(R.string.video_fps_24),
+                getString(R.string.video_fps_25),
+                getString(R.string.video_fps_30)
+            )
+        ).also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
+        fpsSpinner.setSelection(0)
 
         audioQualityBar.progress = 4
         audioQualityValue.text = getString(R.string.audio_quality_value, defaultAudioKbps())
@@ -133,19 +194,34 @@ class VideoActivity : ComponentActivity() {
             override fun onStopTrackingTouch(bar: SeekBar) {}
         })
 
-        audioQualitySwitch.setOnCheckedChangeListener { _, _ ->
-            updateModeVisibility()
+        audioRemoveSwitch.setOnCheckedChangeListener { _, _ ->
+            updateAudioUi()
             updateEstimate()
         }
 
-        modeGroup.setOnCheckedChangeListener { _, _ ->
-            updateModeVisibility()
-            updateExtLabel()
+        audioQualitySwitch.setOnCheckedChangeListener { _, _ ->
+            updateAudioUi()
             updateEstimate()
-            updateApplyEnabled()
         }
-        resolutionGroup.setOnCheckedChangeListener { _, _ -> onVideoSettingsChanged() }
-        fpsGroup.setOnCheckedChangeListener { _, _ -> onVideoSettingsChanged() }
+
+        audioExtractButton.setOnClickListener {
+            lifecycleScope.launch { exportAudio() }
+        }
+
+        val settingsChanged = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                onVideoSettingsChanged()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
+        resolutionSpinner.onItemSelectedListener = settingsChanged
+        fpsSpinner.onItemSelectedListener = settingsChanged
         videoFormatGroup.setOnCheckedChangeListener { _, _ -> onVideoSettingsChanged() }
 
         pickButton.setOnClickListener { pickVideo.launch("video/*") }
@@ -156,14 +232,16 @@ class VideoActivity : ComponentActivity() {
             lifecycleScope.launch { applyToPickedFile() }
         }
 
-        updateModeVisibility()
+        selectSection(SECTION_VIDEO)
+        updateAudioUi()
         updateFormatLabels()
         updateExtLabel()
         updateEstimate()
+        pickVideo.launch("video/*")
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val infos = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
-            fun has(mime: String) = infos.any { it.isEncoder && it.supportedTypes.contains(mime) }
+            val mimes = CodecSupport.hardwareEncoderMimes()
+            fun has(mime: String) = mimes.contains(mime)
             val opus = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
                 has(MediaFormat.MIMETYPE_AUDIO_OPUS)
             val h264 = has(MimeTypes.VIDEO_H264)
@@ -176,9 +254,100 @@ class VideoActivity : ComponentActivity() {
                 h265Available = h265
                 vp8Available = vp8
                 vp9Available = vp9
+                updateAudioUi()
                 updateFormatLabels()
                 updateEstimate()
             }
+        }
+    }
+
+    private fun setupCropControls() {
+        cropAspectSpinner.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            listOf(
+                getString(R.string.crop_aspect_free),
+                getString(R.string.crop_aspect_1_1),
+                getString(R.string.crop_aspect_4_3),
+                getString(R.string.crop_aspect_16_9),
+                getString(R.string.crop_aspect_9_16)
+            )
+        ).also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
+        val aspects = listOf<Float?>(null, 1f, 4f / 3f, 16f / 9f, 9f / 16f)
+        cropAspectSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                if (videoOverlay.isCropMode()) {
+                    videoOverlay.setCropAspect(aspects[position])
+                }
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
+        videoCropButton.setOnClickListener {
+            if (videoOverlay.isCropMode()) {
+                videoOverlay.cancelCrop()
+                endCropUi()
+            } else {
+                videoOverlay.beginCrop()
+                videoCropButton.setText(R.string.crop_cancel)
+                videoCropApply.isEnabled = true
+            }
+        }
+        videoCropApply.setOnClickListener { applyCrop() }
+        endCropUi()
+    }
+
+    private fun endCropUi() {
+        videoCropButton.setText(R.string.crop)
+        videoCropApply.isEnabled = false
+    }
+
+    private fun applyCrop() {
+        val crop = videoOverlay.applyCrop()
+        if (crop.width() < 0.999f || crop.height() < 0.999f) {
+            cropRect = CropUtils.composeCrop(cropRect, crop)
+            val current = decodedFrame
+            if (current != null) {
+                val cropped = CropUtils.cropBitmap(current, crop)
+                decodedFrame = cropped
+                videoOverlay.setBase(cropped)
+            }
+            updateEstimate()
+        }
+        endCropUi()
+    }
+
+    private fun resetCrop() {
+        videoOverlay.cancelCrop()
+        endCropUi()
+        cropRect = null
+    }
+
+    private fun decodeFirstFrame(uri: Uri): Bitmap? {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(this, uri)
+            val frame =
+                retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                    ?: return null
+            val shortSide = SettingsStore.load(this).shortSide
+            val scale =
+                shortSide.toFloat() / minOf(frame.width, frame.height).coerceAtLeast(1)
+            Bitmap.createScaledBitmap(
+                frame,
+                (frame.width * scale).toInt().coerceAtLeast(1),
+                (frame.height * scale).toInt().coerceAtLeast(1),
+                true
+            )
+        } catch (e: Exception) {
+            null
+        } finally {
+            retriever.release()
         }
     }
 
@@ -193,10 +362,16 @@ class VideoActivity : ComponentActivity() {
         }
         lifecycleScope.launch(Dispatchers.IO) {
             val probed = VideoInfo.probe(this@VideoActivity, uri)
+            val frame = decodeFirstFrame(uri)
             withContext(Dispatchers.Main) {
                 info = probed
+                resetCrop()
+                decodedFrame = frame
+                if (frame != null) {
+                    videoOverlay.setBase(frame)
+                }
                 updateFileInfo()
-                updateModeVisibility()
+                updateAudioUi()
                 updateExtLabel()
                 updateEstimate()
                 updateApplyEnabled()
@@ -228,82 +403,83 @@ class VideoActivity : ComponentActivity() {
         val audioMime: String?
     )
 
-    private fun compressChoice(): CompressChoice {
-        var videoMime = chosenVideoMime()
-        var container = chosenContainer(videoMime)
-        val i = info
-        if (container == "video/webm" && i != null && i.hasAudio && !opusAvailable) {
-            videoMime = MimeTypes.VIDEO_H264
-            container = "video/mp4"
+    private fun sourceWebm(): Boolean {
+        val mime = info?.videoMime
+        return mime == MimeTypes.VIDEO_VP8 || mime == MimeTypes.VIDEO_VP9
+    }
+
+    private fun asisAvailable(): Boolean {
+        val i = info ?: return false
+        return if (sourceWebm()) {
+            i.videoMime != null && encoderAvailable(i.videoMime)
+        } else {
+            true
         }
+    }
+
+    private fun altAvailable(): Boolean {
+        return if (sourceWebm()) true else vp8Available || vp9Available
+    }
+
+    private fun compressChoice(): CompressChoice {
+        val i = info ?: return CompressChoice(MimeTypes.VIDEO_H264, "video/mp4", null)
+        val useAlt = altSelected() && altAvailable()
+        val videoMime: String
+        val container: String
+        when {
+            useAlt && sourceWebm() -> {
+                videoMime = MimeTypes.VIDEO_H264
+                container = "video/mp4"
+            }
+            useAlt -> {
+                videoMime = if (vp9Available) MimeTypes.VIDEO_VP9 else MimeTypes.VIDEO_VP8
+                container = "video/webm"
+            }
+            asisAvailable() -> {
+                videoMime = i.videoMime ?: MimeTypes.VIDEO_H264
+                container = if (sourceWebm()) "video/webm" else "video/mp4"
+            }
+            else -> {
+                videoMime = MimeTypes.VIDEO_H264
+                container = "video/mp4"
+            }
+        }
+        val removeAudio = audioRemoveSwitch.isChecked
         val audioMime = when {
-            i == null || !i.hasAudio -> null
+            removeAudio || !i.hasAudio -> null
             container == "video/webm" -> MimeTypes.AUDIO_OPUS
             else -> MimeTypes.AUDIO_AAC
+        }
+        if (container == "video/webm" && !removeAudio && i.hasAudio && !opusAvailable) {
+            val fallbackMime =
+                if (videoMime == MimeTypes.VIDEO_VP8 || videoMime == MimeTypes.VIDEO_VP9) {
+                    MimeTypes.VIDEO_H264
+                } else {
+                    videoMime
+                }
+            return CompressChoice(fallbackMime, "video/mp4", MimeTypes.AUDIO_AAC)
         }
         return CompressChoice(videoMime, container, audioMime)
     }
 
-    private fun mode(): Int = when (modeGroup.checkedRadioButtonId) {
-        R.id.radio_mode_remove_audio -> MODE_REMOVE_AUDIO
-        R.id.radio_mode_extract_audio -> MODE_EXTRACT_AUDIO
-        else -> MODE_COMPRESS
-    }
+    private fun selectedTargetHeight(): Int? =
+        when (resolutionSpinner.selectedItemPosition) {
+            1 -> 320
+            2 -> 480
+            3 -> 640
+            4 -> 720
+            else -> null
+        }
 
-    private fun selectedTargetHeight(): Int = when (resolutionGroup.checkedRadioButtonId) {
-        R.id.radio_res_320 -> 320
-        R.id.radio_res_640 -> 640
-        R.id.radio_res_720 -> 720
-        else -> 480
-    }
-
-    private fun selectedFps(): Int = when (fpsGroup.checkedRadioButtonId) {
-        R.id.radio_fps_24 -> 24
-        R.id.radio_fps_25 -> 25
-        else -> 30
+    private fun selectedFps(): Int? = when (fpsSpinner.selectedItemPosition) {
+        1 -> 24
+        2 -> 25
+        3 -> 30
+        else -> null
     }
 
     private fun altSelected(): Boolean =
         videoFormatGroup.checkedRadioButtonId == R.id.radio_video_fmt_alt
-
-    private fun defaultContainer(): String {
-        val i = info
-        return if (i != null && (i.videoMime == MimeTypes.VIDEO_VP8 ||
-                i.videoMime == MimeTypes.VIDEO_VP9)
-        ) {
-            "video/webm"
-        } else {
-            "video/mp4"
-        }
-    }
-
-    private fun altContainer(): String =
-        if (defaultContainer() == "video/webm") "video/mp4" else "video/webm"
-
-    private fun sourceAac(): Boolean = info?.audioMime == MimeTypes.AUDIO_AAC
-
-    private fun chosenVideoMime(): String? {
-        if (altSelected()) {
-            return if (altContainer() == "video/webm") {
-                if (vp9Available) MimeTypes.VIDEO_VP9 else MimeTypes.VIDEO_VP8
-            } else {
-                MimeTypes.VIDEO_H264
-            }
-        }
-        val i = info ?: return null
-        val keep = i.videoMime
-        val keepable = keep != null && keep in KEEPABLE && encoderAvailable(keep)
-        return if (keepable) keep else MimeTypes.VIDEO_H264
-    }
-
-    private fun chosenContainer(videoMime: String?): String {
-        if (altSelected()) return altContainer()
-        return if (videoMime == MimeTypes.VIDEO_VP8 || videoMime == MimeTypes.VIDEO_VP9) {
-            "video/webm"
-        } else {
-            "video/mp4"
-        }
-    }
 
     private fun encoderAvailable(mime: String): Boolean = when (mime) {
         MimeTypes.VIDEO_H264 -> h264Available
@@ -314,15 +490,29 @@ class VideoActivity : ComponentActivity() {
     }
 
     private fun outputDims(i: VideoInfo): Pair<Int, Int> {
+        val crop = cropRect
+        val baseW: Int
+        val baseH: Int
+        if (crop != null && i.width > 0 && i.height > 0) {
+            baseW = (crop.width() * i.width).roundToInt().coerceAtLeast(2)
+            baseH = (crop.height() * i.height).roundToInt().coerceAtLeast(2)
+        } else {
+            baseW = i.width.coerceAtLeast(0)
+            baseH = i.height.coerceAtLeast(0)
+        }
         val target = selectedTargetHeight()
-        val h = if (i.height > 0) minOf(target, i.height) else target
-        if (i.height <= 0 || i.width <= 0) return Pair(0, h)
-        val w = (i.width.toDouble() * h / i.height).roundToInt()
+        if (target == null) {
+            return Pair(baseW - (baseW % 2), baseH - (baseH % 2))
+        }
+        if (baseH <= 0 || baseW <= 0) return Pair(0, target)
+        val h = minOf(target, baseH)
+        val w = (baseW.toDouble() * h / baseH).roundToInt()
         return Pair(w - (w % 2), h)
     }
 
     private fun effectiveFps(i: VideoInfo): Int {
         val target = selectedFps()
+        if (target == null) return i.frameRate.coerceAtLeast(1)
         return if (i.frameRate in 1 until target) i.frameRate else target
     }
 
@@ -348,16 +538,16 @@ class VideoActivity : ComponentActivity() {
         else defaultAudioKbps() * 1000
     }
 
-    private fun passthroughSelected(): Boolean {
-        val i = info ?: return false
-        return mode() == MODE_EXTRACT_AUDIO && sourceAac()
-    }
+    private fun sourceAac(): Boolean = info?.audioMime == MimeTypes.AUDIO_AAC
 
-    private fun audioReencodeNeeded(): Boolean {
-        val i = info
-        if (mode() == MODE_EXTRACT_AUDIO) return !passthroughSelected()
-        if (mode() == MODE_COMPRESS) return i?.hasAudio == true
-        return false
+    private fun selectSection(target: Int) {
+        section = target
+        sectionVideo.visibility = if (target == SECTION_VIDEO) View.VISIBLE else View.GONE
+        sectionCrop.visibility = if (target == SECTION_CROP) View.VISIBLE else View.GONE
+        sectionAudio.visibility = if (target == SECTION_AUDIO) View.VISIBLE else View.GONE
+        videoTabCrop.alpha = if (target == SECTION_CROP) 1f else 0.4f
+        videoTabVideo.alpha = if (target == SECTION_VIDEO) 1f else 0.4f
+        videoTabAudio.alpha = if (target == SECTION_AUDIO) 1f else 0.4f
     }
 
     private fun onVideoSettingsChanged() {
@@ -365,49 +555,54 @@ class VideoActivity : ComponentActivity() {
         updateEstimate()
     }
 
-    private fun updateModeVisibility() {
-        val m = mode()
-        compressSection.visibility = if (m == MODE_COMPRESS) View.VISIBLE else View.GONE
-        videoFormatSection.visibility = if (m == MODE_COMPRESS) View.VISIBLE else View.GONE
-        audioQualitySection.visibility = if (audioReencodeNeeded()) View.VISIBLE else View.GONE
+    private fun updateAudioUi() {
+        val hasAudio = info?.hasAudio == true
+        audioRemoveSwitch.isEnabled = hasAudio
+        audioExtractButton.isEnabled = hasAudio && !busy
+        audioNoAudioText.visibility = if (hasAudio) View.GONE else View.VISIBLE
+        audioQualitySwitch.isEnabled = hasAudio && !audioRemoveSwitch.isChecked
         audioQualityRow.visibility =
-            if (audioQualitySwitch.isChecked) View.VISIBLE else View.GONE
+            if (hasAudio && !audioRemoveSwitch.isChecked && audioQualitySwitch.isChecked) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
         updateFormatLabels()
     }
 
     private fun updateFormatLabels() {
         val i = info
-        val defWebm = defaultContainer() == "video/webm"
-        val defaultDesc = if (i == null) {
-            "—"
-        } else {
-            "${if (defWebm) "WebM" else "MP4"} · ${VideoInfo.codecName(i.videoMime)}"
+        if (i == null) {
+            videoDefaultRadio.text = "—"
+            videoAltRadio.text = "—"
+            return
         }
-        videoDefaultRadio.text = getString(R.string.video_format_default, defaultDesc)
-        if (defWebm) {
+        videoDefaultRadio.text =
+            getString(R.string.video_fmt_asis, if (sourceWebm()) "WebM" else "MP4")
+        if (sourceWebm()) {
             videoAltRadio.text = getString(R.string.video_format_mp4)
-            videoAltRadio.isEnabled = true
         } else {
             val webmCodec = if (vp9Available) "VP9" else "VP8"
-            videoAltRadio.text =
-                getString(R.string.video_format_webm, webmCodec) +
-                    if (vp8Available || vp9Available) "" else getString(R.string.unavailable_suffix)
-            videoAltRadio.isEnabled = vp8Available || vp9Available
-            if (!videoAltRadio.isEnabled && altSelected()) {
-                videoFormatGroup.check(R.id.radio_video_fmt_default)
-            }
+            videoAltRadio.text = getString(R.string.video_format_webm, webmCodec)
+        }
+        videoDefaultRadio.visibility = if (asisAvailable()) View.VISIBLE else View.GONE
+        videoAltRadio.visibility = if (altAvailable()) View.VISIBLE else View.GONE
+        val checked = videoFormatGroup.checkedRadioButtonId
+        val checkedHidden =
+            (checked == R.id.radio_video_fmt_default && !asisAvailable()) ||
+                (checked == R.id.radio_video_fmt_alt && !altAvailable())
+        if (checkedHidden || checked == -1) {
+            videoFormatGroup.check(
+                if (asisAvailable()) R.id.radio_video_fmt_default else R.id.radio_video_fmt_alt
+            )
         }
     }
 
     private fun updateExtLabel() {
-        extLabel.text = when (mode()) {
-            MODE_COMPRESS -> if (compressChoice().containerMime == "video/webm") {
-                ".webm"
-            } else {
-                ".mp4"
-            }
-            MODE_REMOVE_AUDIO -> ".mp4"
-            else -> ".m4a"
+        extLabel.text = if (compressChoice().containerMime == "video/webm") {
+            ".webm"
+        } else {
+            ".mp4"
         }
     }
 
@@ -417,41 +612,25 @@ class VideoActivity : ComponentActivity() {
             estimateText.text = ""
             return
         }
-        val bytes = when (mode()) {
-            MODE_COMPRESS -> {
-                val choice = compressChoice()
-                val (w, h) = outputDims(i)
-                if (w <= 0 || i.durationUs <= 0) {
-                    0L
-                } else {
-                    val fps = effectiveFps(i)
-                    val vbps = videoBitrateBps(w, h, fps, choice.videoMime)
-                    val abps = if (choice.audioMime != null) {
-                        chosenAudioBitrateBps()
-                    } else {
-                        0
-                    }
-                    (vbps + abps).toLong() * i.durationUs / 8_000_000L
-                }
+        val choice = compressChoice()
+        val (w, h) = outputDims(i)
+        val bytes = if (w <= 0 || i.durationUs <= 0) {
+            0L
+        } else {
+            val fps = effectiveFps(i)
+            val vbps = videoBitrateBps(w, h, fps, choice.videoMime)
+            val abps = if (choice.audioMime != null) {
+                chosenAudioBitrateBps()
+            } else {
+                0
             }
-            MODE_REMOVE_AUDIO -> if (i.videoTrackBytes > 0) i.videoTrackBytes else i.totalBytes
-            else -> {
-                if (passthroughSelected()) {
-                    i.audioTrackBytes
-                } else if (i.durationUs > 0) {
-                    chosenAudioBitrateBps().toLong() * i.durationUs / 8_000_000L
-                } else {
-                    0L
-                }
-            }
+            (vbps + abps).toLong() * i.durationUs / 8_000_000L
         }
         estimateText.text = getString(R.string.video_estimate, formatBytes(bytes))
     }
 
     private fun updateApplyEnabled() {
-        val i = info
-        applyButton.isEnabled = !busy && pickedUri != null && i != null &&
-            (mode() != MODE_EXTRACT_AUDIO || i.hasAudio)
+        applyButton.isEnabled = !busy && pickedUri != null && info != null
     }
 
     private fun applyToPickedFile() = lifecycleScope.launch {
@@ -463,81 +642,80 @@ class VideoActivity : ComponentActivity() {
         try {
             val dir = File(cacheDir, "video_out")
             dir.mkdirs()
-            val output = when (mode()) {
-                MODE_COMPRESS -> {
-                    val choice = compressChoice()
-                    val fileExt = if (choice.containerMime == "video/webm") ".webm" else ".mp4"
-                    val outFile = File(dir, "out_${System.currentTimeMillis()}$fileExt")
-                    val (w, h) = outputDims(i)
-                    val targetHeight = if (i.height > 0) h else selectedTargetHeight()
-                    VideoProcessor.runTransformer(
-                        this@VideoActivity,
-                        uri,
-                        outFile,
-                        removeAudio = false,
-                        targetHeight = targetHeight,
-                        targetFps = if (i.frameRate > selectedFps()) selectedFps() else null,
-                        videoMime = choice.videoMime,
-                        audioMime = choice.audioMime,
-                        videoBitrateBps = videoBitrateBps(
-                            w, targetHeight, effectiveFps(i), choice.videoMime
-                        ),
-                        audioBitrateBps = if (choice.audioMime != null) {
-                            chosenAudioBitrateBps()
-                        } else {
-                            null
-                        },
-                        onProgress = { p -> runOnUiThread { updateProgress(p) } }
-                    )
-                }
-                MODE_REMOVE_AUDIO -> {
-                    val outFile = File(dir, "out_${System.currentTimeMillis()}.mp4")
-                    try {
-                        VideoProcessor.stripAudio(this@VideoActivity, uri, outFile, "video/mp4")
-                    } catch (e: Exception) {
-                        outFile.delete()
-                        VideoProcessor.runTransformer(
-                            this@VideoActivity,
-                            uri,
-                            outFile,
-                            removeAudio = true,
-                            targetHeight = null,
-                            targetFps = null,
-                            videoMime = MimeTypes.VIDEO_H264,
-                            audioMime = null,
-                            videoBitrateBps = null,
-                            audioBitrateBps = null,
-                            onProgress = { p -> runOnUiThread { updateProgress(p) } }
-                        )
-                    }
-                }
-                else -> {
-                    val outFile = File(dir, "out_${System.currentTimeMillis()}")
-                    VideoProcessor.extractAudio(
-                        this@VideoActivity,
-                        uri,
-                        outFile,
-                        passthrough = passthroughSelected(),
-                        bitrateBps = chosenAudioBitrateBps(),
-                        durationUs = i.durationUs,
-                        onProgress = { p -> runOnUiThread { updateProgress(p) } }
-                    )
-                }
-            }
+            val choice = compressChoice()
+            val fileExt = if (choice.containerMime == "video/webm") ".webm" else ".mp4"
+            val outFile = File(dir, "out_${System.currentTimeMillis()}$fileExt")
+            val (w, h) = outputDims(i)
+            val targetHeight = selectedTargetHeight()?.let { h }
+            val output = VideoProcessor.runTransformer(
+                this@VideoActivity,
+                uri,
+                outFile,
+                removeAudio = audioRemoveSwitch.isChecked,
+                targetHeight = targetHeight,
+                targetFps = selectedFps()?.takeIf { i.frameRate > it },
+                videoMime = choice.videoMime,
+                audioMime = choice.audioMime,
+                videoBitrateBps = videoBitrateBps(w, h, effectiveFps(i), choice.videoMime),
+                audioBitrateBps = if (choice.audioMime != null) {
+                    chosenAudioBitrateBps()
+                } else {
+                    null
+                },
+                cropRect = CropUtils.evenCrop(cropRect, i.width, i.height),
+                onProgress = { p -> runOnUiThread { updateProgress(p) } }
+            )
             val base = fileNameInput.text.toString()
                 .trim()
                 .replace(Regex("[\\\\/:*?\"<>|]"), "")
                 .ifEmpty { "video" }
             val ext = extForMime(output.mime)
-            val isVideo = mode() != MODE_EXTRACT_AUDIO
             val savedUri = withContext(Dispatchers.IO) {
-                VideoSaver.saveFile(
-                    this@VideoActivity, output.file, "$base$ext", output.mime, isVideo
-                )
+                VideoSaver.saveFile(this@VideoActivity, output.file, "$base$ext", output.mime, true)
             }
             output.file.delete()
             if (savedUri == null) throw IOException("save failed")
-            onSaved(if (isVideo) "Movies" else "Music")
+            onSaved("Movies")
+        } catch (e: Exception) {
+            Log.e(TAG, "export failed", e)
+            statusText.text =
+                getString(R.string.save_failed_reason, e.message ?: e.javaClass.simpleName)
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    private suspend fun exportAudio() {
+        val uri = pickedUri ?: return
+        val i = info ?: return
+        if (!i.hasAudio) return
+        setBusy(true)
+        savedMessageJob?.cancel()
+        statusText.text = ""
+        try {
+            val dir = File(cacheDir, "video_out")
+            dir.mkdirs()
+            val outFile = File(dir, "out_${System.currentTimeMillis()}")
+            val output = VideoProcessor.extractAudio(
+                this@VideoActivity,
+                uri,
+                outFile,
+                passthrough = sourceAac(),
+                bitrateBps = chosenAudioBitrateBps(),
+                durationUs = i.durationUs,
+                onProgress = { p -> runOnUiThread { updateProgress(p) } }
+            )
+            val base = fileNameInput.text.toString()
+                .trim()
+                .replace(Regex("[\\\\/:*?\"<>|]"), "")
+                .ifEmpty { "audio" }
+            val ext = extForMime(output.mime)
+            val savedUri = withContext(Dispatchers.IO) {
+                VideoSaver.saveFile(this@VideoActivity, output.file, "$base$ext", output.mime, false)
+            }
+            output.file.delete()
+            if (savedUri == null) throw IOException("save failed")
+            onSaved("Music")
         } catch (e: Exception) {
             Log.e(TAG, "export failed", e)
             statusText.text =
@@ -567,7 +745,9 @@ class VideoActivity : ComponentActivity() {
     private fun setBusy(value: Boolean) {
         busy = value
         pickButton.isEnabled = !value
+        if (value) busySpinner.show() else busySpinner.hide()
         updateApplyEnabled()
+        updateAudioUi()
     }
 
     private fun onSaved(directory: String) {
@@ -581,16 +761,9 @@ class VideoActivity : ComponentActivity() {
 
     companion object {
         private const val TAG = "VideoActivity"
-        private const val MODE_COMPRESS = 0
-        private const val MODE_REMOVE_AUDIO = 1
-        private const val MODE_EXTRACT_AUDIO = 2
+        private const val SECTION_CROP = 0
+        private const val SECTION_VIDEO = 1
+        private const val SECTION_AUDIO = 2
         private const val SAVED_MESSAGE_MS = 3000L
-        private val KEEPABLE = setOf(
-            MimeTypes.VIDEO_H264,
-            MimeTypes.VIDEO_H265,
-            MimeTypes.VIDEO_VP8,
-            MimeTypes.VIDEO_VP9,
-            MimeTypes.VIDEO_MP4V
-        )
     }
 }

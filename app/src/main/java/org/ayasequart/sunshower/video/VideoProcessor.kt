@@ -1,6 +1,8 @@
 package org.ayasequart.sunshower.video
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.RectF
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
@@ -12,8 +14,12 @@ import android.os.Build
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.Clock
+import androidx.media3.effect.BitmapOverlay
+import androidx.media3.effect.Crop
 import androidx.media3.effect.FrameDropEffect
+import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
+import androidx.media3.effect.TextureOverlay
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.DefaultDecoderFactory
 import androidx.media3.transformer.DefaultEncoderFactory
@@ -61,6 +67,8 @@ object VideoProcessor {
         audioMime: String?,
         videoBitrateBps: Int?,
         audioBitrateBps: Int?,
+        cropRect: RectF? = null,
+        overlayBitmap: Bitmap? = null,
         onProgress: (Int) -> Unit
     ): VideoOutput = withContext(Dispatchers.Main) {
         suspendCancellableCoroutine { cont ->
@@ -68,6 +76,16 @@ object VideoProcessor {
             var emulatorAssetLoaderFactory: ExoPlayerAssetLoader.Factory? = null
             try {
                 val videoEffects = ArrayList<Effect>()
+                if (cropRect != null) {
+                    videoEffects.add(
+                        Crop(
+                            cropRect.left * 2f - 1f,
+                            cropRect.right * 2f - 1f,
+                            1f - cropRect.bottom * 2f,
+                            1f - cropRect.top * 2f
+                        )
+                    )
+                }
                 if (targetHeight != null) {
                     videoEffects.add(
                         Presentation.createForHeight(targetHeight)
@@ -76,6 +94,15 @@ object VideoProcessor {
                 }
                 if (targetFps != null) {
                     videoEffects.add(FrameDropEffect.createDefaultFrameDropEffect(targetFps.toFloat()))
+                }
+                if (overlayBitmap != null) {
+                    videoEffects.add(
+                        OverlayEffect(
+                            ImmutableList.of<TextureOverlay>(
+                                BitmapOverlay.createStaticBitmapOverlay(overlayBitmap)
+                            )
+                        )
+                    )
                 }
                 val edited = EditedMediaItem.Builder(MediaItem.fromUri(uri))
                     .setRemoveAudio(removeAudio)

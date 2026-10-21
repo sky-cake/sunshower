@@ -21,7 +21,8 @@ class SettingsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
         findViewById<View>(android.R.id.content).applySystemBarInsets(
-            (16 * resources.displayMetrics.density).toInt()
+            extraTopPx = (24 * resources.displayMetrics.density).toInt(),
+            extraBottomPx = (16 * resources.displayMetrics.density).toInt()
         )
         val settings = SettingsStore.load(this)
         val fpsBar = findViewById<SeekBar>(R.id.fps_bar)
@@ -41,13 +42,13 @@ class SettingsActivity : ComponentActivity() {
         val shortSides = intArrayOf(144, 240, 360, 480, 720)
         val resolutionSpinner = findViewById<Spinner>(R.id.resolution_spinner)
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, shortSides.map { "${it}p" })
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        adapter.setDropDownViewResource(org.ayasequart.sunshower.R.layout.spinner_dropdown_item)
         resolutionSpinner.adapter = adapter
         resolutionSpinner.setSelection(shortSides.indexOf(settings.shortSide).coerceAtLeast(0))
 
         val aspectSpinner = findViewById<Spinner>(R.id.aspect_spinner)
         val aspectAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, SettingsStore.ASPECTS)
-        aspectAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        aspectAdapter.setDropDownViewResource(org.ayasequart.sunshower.R.layout.spinner_dropdown_item)
         aspectSpinner.adapter = aspectAdapter
         aspectSpinner.setSelection(SettingsStore.ASPECTS.indexOf(settings.aspect).coerceAtLeast(0))
 

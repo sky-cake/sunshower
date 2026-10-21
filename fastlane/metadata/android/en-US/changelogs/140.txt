@@ -1,0 +1,9 @@
+v1.4.0:
+- overlay editor now supports video
+- crop with aspect presets for images, gifs and videos
+- crop, compress and audio controls combined on the video page
+- output options: format, quality and size for images, resolution, frame rate, format and audio for videos
+- spinner while saving on overlay, video and kuroba pages
+- matching options ui across editor and video pages
+- refreshed dark theme
+- layout and insets fixes

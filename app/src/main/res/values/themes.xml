@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Sunshower" parent="android:Theme.Material.NoActionBar" />
+    <style name="Theme.Sunshower" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorBackground">@color/surface</item>
+        <item name="android:windowBackground">@color/surface</item>
+        <item name="android:colorPrimary">@color/accent</item>
+        <item name="android:colorPrimaryDark">@color/surface_dim</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:colorButtonNormal">@color/accent</item>
+        <item name="android:statusBarColor">@color/surface_dim</item>
+        <item name="android:navigationBarColor">@color/surface_dim</item>
+    </style>
 </resources>

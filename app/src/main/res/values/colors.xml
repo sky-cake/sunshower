@@ -8,4 +8,8 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="ic_launcher_background">#FF3A3A3A</color>
+    <color name="surface">#FF212121</color>
+    <color name="surface_dim">#FF1A1A1A</color>
+    <color name="surface_card">#FF2C2C2C</color>
+    <color name="accent">#FF3E5876</color>
 </resources>

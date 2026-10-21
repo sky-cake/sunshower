@@ -4,146 +4,98 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <ScrollView
+    <TextView
+        android:id="@+id/video_file_info"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:textSize="14sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="16dp">
+
+        <EditText
+            android:id="@+id/video_file_name_input"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="@string/default_file_name"
+            android:importantForAutofill="no"
+            android:inputType="text"
+            android:maxLength="64" />
+
+        <TextView
+            android:id="@+id/video_ext_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textColor="#FF888888"
+            android:textSize="18sp" />
+
+        <Button
+            android:id="@+id/video_set_unix_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="@string/set_unix" />
+    </LinearLayout>
+
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:fillViewport="true">
+        android:layout_weight="1">
 
-        <FrameLayout
+        <ScrollView
+            android:id="@+id/section_video"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center_vertical"
                 android:orientation="vertical"
-                android:padding="16dp"
-                android:paddingTop="48dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/video_operation_label"
-                android:textSize="18sp" />
-
-            <RadioGroup
-                android:id="@+id/video_mode_group"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:orientation="vertical">
-
-                <RadioButton
-                    android:id="@+id/radio_mode_compress"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:checked="true"
-                    android:text="@string/video_mode_compress" />
-
-                <RadioButton
-                    android:id="@+id/radio_mode_remove_audio"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/video_mode_remove_audio" />
-
-                <RadioButton
-                    android:id="@+id/radio_mode_extract_audio"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/video_mode_extract_audio" />
-            </RadioGroup>
-
-            <LinearLayout
-                android:id="@+id/video_compress_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="8dp"
                     android:text="@string/resolution_label"
                     android:textSize="18sp" />
 
-                <RadioGroup
-                    android:id="@+id/video_resolution_group"
+                <Spinner
+                    android:id="@+id/video_resolution_spinner"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="horizontal">
-
-                    <RadioButton
-                        android:id="@+id/radio_res_320"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/video_res_320" />
-
-                    <RadioButton
-                        android:id="@+id/radio_res_480"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:checked="true"
-                        android:text="@string/video_res_480" />
-
-                    <RadioButton
-                        android:id="@+id/radio_res_640"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="@string/video_res_640" />
-
-                    <RadioButton
-                        android:id="@+id/radio_res_720"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="@string/video_res_720" />
-                </RadioGroup>
+                    android:layout_marginTop="4dp"
+                    android:popupBackground="@drawable/spinner_popup" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="12dp"
                     android:text="@string/video_fps_label"
                     android:textSize="18sp" />
 
-                <RadioGroup
-                    android:id="@+id/video_fps_group"
+                <Spinner
+                    android:id="@+id/video_fps_spinner"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="horizontal">
-
-                    <RadioButton
-                        android:id="@+id/radio_fps_24"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/video_fps_24" />
-
-                    <RadioButton
-                        android:id="@+id/radio_fps_25"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="16dp"
-                        android:text="@string/video_fps_25" />
-
-                    <RadioButton
-                        android:id="@+id/radio_fps_30"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="16dp"
-                        android:checked="true"
-                        android:text="@string/video_fps_30" />
-                </RadioGroup>
+                    android:layout_marginTop="4dp"
+                    android:popupBackground="@drawable/spinner_popup" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="12dp"
                     android:text="@string/video_quality_label"
                     android:textSize="18sp" />
 
@@ -158,86 +110,60 @@
                     android:id="@+id/video_quality_bar"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="4dp"
                     android:max="9" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/video_format_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/video_format_label"
-                    android:textSize="18sp" />
-
-                <RadioGroup
-                    android:id="@+id/video_format_group"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="horizontal">
-
-                    <RadioButton
-                        android:id="@+id/radio_video_fmt_default"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="true" />
-
-                    <RadioButton
-                        android:id="@+id/radio_video_fmt_alt"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="16dp" />
-                </RadioGroup>
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/audio_quality_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <CheckBox
-                    android:id="@+id/audio_quality_switch"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/audio_quality_switch" />
 
                 <LinearLayout
-                    android:id="@+id/audio_quality_row"
+                    android:id="@+id/video_format_section"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:visibility="gone">
+                    android:orientation="vertical">
 
                     <TextView
-                        android:id="@+id/audio_quality_value"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:textSize="16sp" />
+                        android:layout_marginTop="12dp"
+                        android:text="@string/video_format_label"
+                        android:textSize="18sp" />
 
-                    <SeekBar
-                        android:id="@+id/audio_quality_bar"
+                    <RadioGroup
+                        android:id="@+id/video_format_group"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:max="9" />
+                        android:layout_marginTop="4dp"
+                        android:orientation="horizontal">
+
+                        <RadioButton
+                            android:id="@+id/radio_video_fmt_default"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checked="true" />
+
+                        <RadioButton
+                            android:id="@+id/radio_video_fmt_alt"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp" />
+                    </RadioGroup>
                 </LinearLayout>
             </LinearLayout>
+        </ScrollView>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="@string/file_name_label"
-                android:textSize="18sp" />
+        <LinearLayout
+            android:id="@+id/section_crop"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:visibility="gone">
+
+            <org.ayasequart.sunshower.edit.OverlayView
+                android:id="@+id/video_overlay_view"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="8dp"
+                android:layout_weight="1" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -246,75 +172,160 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <EditText
-                    android:id="@+id/video_file_name_input"
+                <Button
+                    android:id="@+id/video_crop_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/crop" />
+
+                <Spinner
+                    android:id="@+id/video_crop_aspect_spinner"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:hint="@string/default_file_name"
-                    android:importantForAutofill="no"
-                    android:inputType="text"
-                    android:maxLength="64" />
-
-                <TextView
-                    android:id="@+id/video_ext_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:textColor="#FF888888"
-                    android:textSize="18sp" />
+                    android:layout_weight="1"
+                    android:popupBackground="@drawable/spinner_popup" />
 
                 <Button
-                    android:id="@+id/video_set_unix_button"
+                    android:id="@+id/video_crop_apply"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:text="@string/set_unix" />
+                    android:enabled="false"
+                    android:text="@string/crop_apply" />
             </LinearLayout>
         </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/section_audio"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="16dp"
+            android:visibility="gone">
+
+            <CheckBox
+                android:id="@+id/audio_remove_switch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/video_mode_remove_audio" />
+
+            <CheckBox
+                android:id="@+id/audio_quality_switch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/audio_quality_switch" />
+
+            <LinearLayout
+                android:id="@+id/audio_quality_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/audio_quality_value"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textSize="16sp" />
+
+                <SeekBar
+                    android:id="@+id/audio_quality_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:max="9" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/audio_extract_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/video_mode_extract_audio" />
+
+            <TextView
+                android:id="@+id/audio_no_audio"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/video_no_audio"
+                android:textSize="14sp"
+                android:visibility="gone" />
+        </LinearLayout>
     </FrameLayout>
-    </ScrollView>
+
+    <TextView
+        android:id="@+id/video_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/video_estimate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:textSize="14sp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingStart="16dp"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
         android:paddingTop="8dp"
-        android:paddingEnd="16dp">
+        android:paddingEnd="8dp">
 
-        <TextView
-            android:id="@+id/video_status"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
-
-        <TextView
-            android:id="@+id/video_estimate"
-            android:layout_width="wrap_content"
+        <Button
+            android:id="@+id/video_tab_crop"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textSize="16sp" />
+            android:layout_weight="1"
+            android:text="@string/crop" />
 
-        <TextView
-            android:id="@+id/video_file_info"
-            android:layout_width="wrap_content"
+        <Button
+            android:id="@+id/video_tab_video"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textSize="16sp" />
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:text="@string/video_title" />
+
+        <Button
+            android:id="@+id/video_tab_audio"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:text="@string/audio_label" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp">
 
         <Button
             android:id="@+id/video_pick_button"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_weight="1"
             android:text="@string/video_pick" />
 
         <Button
             android:id="@+id/video_apply_button"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:enabled="false"
-            android:text="@string/video_apply" />
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:text="@string/save" />
     </LinearLayout>
 </LinearLayout>
