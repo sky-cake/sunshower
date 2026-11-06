@@ -40,7 +40,14 @@ Builds:
     gradle:
       - yes
 
+  - versionName: 1.5.0
+    versionCode: 150
+    commit: v1.5.0
+    subdir: app
+    gradle:
+      - yes
+
 AutoUpdateMode: Version v%v
 UpdateCheckMode: Tags
-CurrentVersion: 1.4.0
-CurrentVersionCode: 140
+CurrentVersion: 1.5.0
+CurrentVersionCode: 150
