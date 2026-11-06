@@ -108,7 +108,11 @@ object VideoProcessor {
                     .setRemoveAudio(removeAudio)
                     .setEffects(Effects(emptyList(), videoEffects))
                     .build()
-                val sequence = EditedMediaItemSequence.withAudioAndVideoFrom(listOf(edited))
+                val sequence = if (removeAudio) {
+                    EditedMediaItemSequence.withVideoFrom(listOf(edited))
+                } else {
+                    EditedMediaItemSequence.withAudioAndVideoFrom(listOf(edited))
+                }
                 val composition = Composition.Builder(sequence).build()
                 val encoderBuilder = DefaultEncoderFactory.Builder(context)
                 if (videoBitrateBps != null) {
