@@ -288,9 +288,54 @@ class VideoActivity : ComponentActivity() {
     }
 
     private fun setupCropControls() {
+        videoCropButton.setOnClickListener {
+            if (videoOverlay.isCropMode()) {
+                cancelCrop()
+            } else if (decodedFrame != null) {
+                beginCrop()
+            }
+        }
+        val aspects = listOf<Float?>(null, 1f, 4f / 3f, 16f / 9f, 9f / 16f)
+        cropAspectSpinner.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            listOf(
+                getString(R.string.crop_aspect_free),
+                getString(R.string.crop_aspect_1_1),
+                getString(R.string.crop_aspect_4_3),
+                getString(R.string.crop_aspect_16_9),
+                getString(R.string.crop_aspect_9_16)
+            )
+        ).also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
+        cropAspectSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                if (videoOverlay.isCropMode()) {
+                    videoOverlay.setCropAspect(aspects[position])
+                }
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
         videoCropApply.setOnClickListener {
             applyCrop()
         }
+        endCropUi()
+    }
+
+    private fun beginCrop() {
+        videoOverlay.beginCrop()
+        cropAspectSpinner.setSelection(0)
+        videoCropButton.setText(R.string.crop_cancel)
+        videoCropApply.isEnabled = true
+    }
+
+    private fun cancelCrop() {
+        videoOverlay.cancelCrop()
         endCropUi()
     }
 
@@ -302,7 +347,7 @@ class VideoActivity : ComponentActivity() {
                 trimEndMs = (i.durationUs / 1000 * endFraction).toLong()
                 updateTrimTimeText()
                 updateEstimate()
-                updateTrimPreview(activeFraction)
+                updateTrimPreview((i.durationUs / 1000 * activeFraction).toLong())
             }
         }
     }
@@ -433,7 +478,9 @@ class VideoActivity : ComponentActivity() {
                 withContext(Dispatchers.Main) {
                     trimRetriever = retriever
                     trimOverlay.setDuration(probed.durationUs)
-                    trimPreview.setBase(frame)
+                    if (frame != null) {
+                        trimPreview.setBase(frame)
+                    }
                     updateTrimTimeText()
                 }
             } catch (e: Exception) {
@@ -698,7 +745,8 @@ class VideoActivity : ComponentActivity() {
         }
         val choice = compressChoice()
         val (w, h) = outputDims(i)
-        val bytes = if (w <= 0 || trimDurUs <= 0) {
+        val durUs = trimmedDurationUs(i)
+        val bytes = if (w <= 0 || durUs <= 0) {
             0L
         } else {
             val fps = effectiveFps(i)
@@ -708,7 +756,7 @@ class VideoActivity : ComponentActivity() {
             } else {
                 0
             }
-            (vbps + abps).toLong() * trimDurUs / 8_000_000L
+            (vbps + abps).toLong() * durUs / 8_000_000L
         }
         estimateText.text = getString(R.string.video_estimate, formatBytes(bytes))
     }

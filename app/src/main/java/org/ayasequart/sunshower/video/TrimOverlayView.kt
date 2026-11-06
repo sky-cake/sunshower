@@ -25,7 +25,9 @@ class TrimOverlayView @JvmOverloads constructor(
     private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val selectedPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val handlePaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val handleRadius = resources.displayMetrics.density * 14f
+    private val handleWidth = resources.displayMetrics.density * 10f
+    private val handleHeight = resources.displayMetrics.density * 26f
+    private val handleCorner = resources.displayMetrics.density * 3f
 
     private var dragHandle = -1
     private var startFraction = 0f
@@ -78,14 +80,19 @@ class TrimOverlayView @JvmOverloads constructor(
     }
 
     private fun drawHandle(canvas: Canvas, x: Float) {
-        val cy = barRect.centerY()
+        val rect = RectF(
+            x - handleWidth / 2f,
+            barRect.centerY() - handleHeight / 2f,
+            x + handleWidth / 2f,
+            barRect.centerY() + handleHeight / 2f
+        )
         handlePaint.style = Paint.Style.FILL
         handlePaint.color = Color.WHITE
-        canvas.drawCircle(x, cy, handleRadius, handlePaint)
+        canvas.drawRoundRect(rect, handleCorner, handleCorner, handlePaint)
         handlePaint.style = Paint.Style.STROKE
         handlePaint.color = Color.DKGRAY
         handlePaint.strokeWidth = resources.displayMetrics.density * 2f
-        canvas.drawCircle(x, cy, handleRadius, handlePaint)
+        canvas.drawRoundRect(rect, handleCorner, handleCorner, handlePaint)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -138,7 +145,7 @@ class TrimOverlayView @JvmOverloads constructor(
         private const val HANDLE_END = 1
         private const val MIN_RANGE = 0.02f
         private const val BAR_COLOR = 0xFF444444.toInt()
-        private const val SELECTED_COLOR = 0xFF88FF88.toInt()
+        private const val SELECTED_COLOR = 0xFF3E5876.toInt()
         private const val DIM_COLOR = 0x66000000
     }
 }
