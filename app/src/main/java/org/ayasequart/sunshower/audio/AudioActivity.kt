@@ -12,36 +12,39 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MimeTypes
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.ayasequart.sunshower.R
 import org.ayasequart.sunshower.ui.BusySpinner
+import org.ayasequart.sunshower.ui.StatusMessage
 import org.ayasequart.sunshower.ui.applySystemBarInsets
+import org.ayasequart.sunshower.util.durationText
 import org.ayasequart.sunshower.util.displayName
+import org.ayasequart.sunshower.util.extForMime
 import org.ayasequart.sunshower.util.formatBytes
+import org.ayasequart.sunshower.util.sanitizedFileName
+import org.ayasequart.sunshower.util.uriBaseName
 import org.ayasequart.sunshower.video.TrimOverlayView
 import org.ayasequart.sunshower.video.VideoInfo
 import org.ayasequart.sunshower.video.VideoProcessor
 import org.ayasequart.sunshower.video.VideoSaver
 import java.io.File
 import java.io.IOException
-import java.util.Locale
 
 class AudioActivity : ComponentActivity() {
 
     private lateinit var statusText: TextView
     private lateinit var fileInfoText: TextView
+    private lateinit var extLabel: TextView
     private lateinit var applyButton: Button
     private lateinit var fileNameInput: EditText
     private lateinit var timeText: TextView
     private lateinit var noAudioText: TextView
     private lateinit var trimOverlay: TrimOverlayView
+    private lateinit var savedMessage: StatusMessage
 
     private var pickedUri: Uri? = null
     private var info: VideoInfo? = null
-    private var savedMessageJob: Job? = null
     private var busy = false
     private var trimStartMs = 0L
     private var trimEndMs = -1L
@@ -65,11 +68,14 @@ class AudioActivity : ComponentActivity() {
 
         statusText = findViewById(R.id.audio_status)
         fileInfoText = findViewById(R.id.audio_file_info)
+        extLabel = findViewById(R.id.audio_ext_label)
         applyButton = findViewById(R.id.audio_apply_button)
         fileNameInput = findViewById(R.id.audio_file_name_input)
         timeText = findViewById(R.id.audio_time_text)
         noAudioText = findViewById(R.id.audio_no_audio)
         trimOverlay = findViewById(R.id.audio_trim_overlay)
+        savedMessage = StatusMessage(lifecycleScope, statusText)
+        extLabel.text = ".m4a"
 
         trimOverlay.listener = object : TrimOverlayView.Listener {
             override fun onTrimChanged(
@@ -100,13 +106,11 @@ class AudioActivity : ComponentActivity() {
 
     private fun onPicked(uri: Uri) {
         applyButton.isEnabled = false
-        statusText.text = ""
+        savedMessage.clear()
         trimStartMs = 0L
         trimEndMs = -1L
-        val fullName = uri.displayName(this)
-        if (fullName != null) {
-            val base = fullName.substringBeforeLast('.').trim()
-            if (base.isNotEmpty()) fileNameInput.setText(base)
+        uriBaseName(uri.displayName(this))?.let {
+            fileNameInput.setText(it)
         }
         lifecycleScope.launch(Dispatchers.IO) {
             val probed = VideoInfo.probe(this@AudioActivity, uri)
@@ -132,7 +136,7 @@ class AudioActivity : ComponentActivity() {
             fileInfoText.text = ""
             return
         }
-        fileInfoText.text = getString(R.string.video_file_info, parts.joinToString(", "))
+        fileInfoText.text = getString(R.string.file_info, parts.joinToString(", "))
     }
 
     private fun updateTrimTimeText() {
@@ -155,8 +159,7 @@ class AudioActivity : ComponentActivity() {
         val i = info ?: return@launch
         if (!i.hasAudio) return@launch
         setBusy(true)
-        savedMessageJob?.cancel()
-        statusText.text = ""
+        savedMessage.clear()
         try {
             val dir = File(cacheDir, "audio_out")
             dir.mkdirs()
@@ -172,10 +175,7 @@ class AudioActivity : ComponentActivity() {
                 trimEndUs = if (trimEndMs < 0) -1L else trimEndMs * 1000,
                 onProgress = { p -> runOnUiThread { updateProgress(p) } }
             )
-            val base = fileNameInput.text.toString()
-                .trim()
-                .replace(Regex("[\\\\/:*?\"<>|]"), "")
-                .ifEmpty { "audio" }
+            val base = fileNameInput.text.toString().sanitizedFileName("audio")
             val ext = extForMime(output.mime)
             val savedUri = withContext(Dispatchers.IO) {
                 VideoSaver.saveFile(this@AudioActivity, output.file, "$base$ext", output.mime, false)
@@ -192,21 +192,9 @@ class AudioActivity : ComponentActivity() {
         }
     }
 
-    private fun extForMime(mime: String): String = when (mime) {
-        "audio/mp4" -> ".m4a"
-        "audio/webm" -> ".webm"
-        else -> ".m4a"
-    }
-
-    private fun durationText(durationUs: Long): String? {
-        if (durationUs <= 0) return null
-        val totalSeconds = durationUs / 1_000_000L
-        return "%d:%02d".format(Locale.US, totalSeconds / 60, totalSeconds % 60)
-    }
-
     private fun updateProgress(percent: Int) {
-        savedMessageJob?.cancel()
-        statusText.text = getString(R.string.video_processing, percent.coerceIn(0, 100))
+        savedMessage.cancel()
+        statusText.text = getString(R.string.processing_percent, percent.coerceIn(0, 100))
     }
 
     private fun setBusy(value: Boolean) {
@@ -216,17 +204,11 @@ class AudioActivity : ComponentActivity() {
     }
 
     private fun onSaved() {
-        savedMessageJob?.cancel()
-        statusText.text = getString(R.string.video_saved_to, "Music")
-        savedMessageJob = lifecycleScope.launch {
-            delay(SAVED_MESSAGE_MS)
-            statusText.text = ""
-        }
+        savedMessage.show(getString(R.string.video_saved_to, "Music"))
     }
 
     companion object {
         private const val TAG = "AudioActivity"
-        private const val SAVED_MESSAGE_MS = 3000L
         private const val DEFAULT_BITRATE_BPS = 128_000
     }
 }

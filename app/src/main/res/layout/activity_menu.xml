@@ -32,7 +32,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:text="@string/menu_overlay" />
+            android:text="@string/menu_image" />
 
         <Button
             android:id="@+id/video_menu_button"
@@ -64,5 +64,5 @@
         android:background="@android:color/transparent"
         android:contentDescription="@string/about"
         android:src="@drawable/ic_info"
-        android:tint="#888888" />
+        android:tint="@color/text_dim" />
 </FrameLayout>

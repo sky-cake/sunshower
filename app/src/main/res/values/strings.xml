@@ -12,6 +12,7 @@
     <string name="settings">GIF Settings</string>
     <string name="take_gif">Capture</string>
     <string name="menu_overlay">Overlay</string>
+    <string name="menu_image">Image</string>
     <string name="recording">Recording…</string>
     <string name="encoding">Encoding GIF…</string>
     <string name="frames_captured">%d frames</string>
@@ -36,7 +37,6 @@
     <string name="kuroba_pick">Select file</string>
     <string name="kuroba_apply">Apply</string>
     <string name="set_unix">Set to Unix</string>
-    <string name="kuroba_file_info">Selected: %1$s</string>
     <string name="change_checksum">Change image checksum</string>
     <string name="fix_exif">Fix EXIF orientation</string>
     <string name="remove_metadata">Remove metadata</string>
@@ -79,11 +79,10 @@
     <string name="audio_option_custom">Custom</string>
     <string name="menu_video">Video</string>
     <string name="video_title">Video</string>
-    <string name="video_loading">Loading…</string>
-    <string name="video_saved_to_movies">Saved to Movies/Sunshower</string>
+    <string name="loading">Loading…</string>
     <string name="video_pick">Select video</string>
     <string name="video_apply">Apply</string>
-    <string name="video_file_info">Selected: %1$s</string>
+    <string name="file_info">Selected: %1$s</string>
     <string name="video_mode_remove_audio">Remove audio</string>
     <string name="video_mode_extract_audio">Extract audio</string>
     <string name="video_fps_label">Frame rate</string>
@@ -95,9 +94,10 @@
     <string name="audio_quality_switch">Custom audio quality</string>
     <string name="audio_quality_value">%1$d kbps</string>
     <string name="video_estimate">Export: %1$s</string>
-    <string name="video_processing">Processing… %1$d%%</string>
+    <string name="processing">Processing…</string>
+    <string name="processing_percent">Processing… %1$d%%</string>
     <string name="video_saved_to">Saved to %1$s/Sunshower</string>
-    <string name="video_no_audio">No audio track in this file</string>
+    <string name="no_audio">No audio track in this file</string>
     <string name="video_res_320">320p</string>
     <string name="video_res_480">480p</string>
     <string name="video_res_640">640p</string>

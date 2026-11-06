@@ -1,6 +1,7 @@
 package org.ayasequart.sunshower.edit
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
@@ -161,7 +162,7 @@ class PaletteController(
         container.addView(preview)
         picker.onColorChanged = { c -> preview.setBackgroundColor(c) }
 
-        android.app.AlertDialog.Builder(context)
+        val dialog = android.app.AlertDialog.Builder(context)
             .setTitle(R.string.color_picker_title)
             .setView(container)
             .setPositiveButton(R.string.done) { _, _ ->
@@ -169,6 +170,8 @@ class PaletteController(
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setTextColor(Color.WHITE)
+        dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.WHITE)
     }
 
     companion object {

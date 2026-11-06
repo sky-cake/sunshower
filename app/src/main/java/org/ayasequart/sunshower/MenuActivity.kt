@@ -32,7 +32,7 @@ class MenuActivity : ComponentActivity() {
             startActivity(Intent(this, MainActivity::class.java))
         }
         findViewById<Button>(R.id.edit_menu_button).setOnClickListener {
-            pickMedia.launch(arrayOf("image/*", "video/*"))
+            pickMedia.launch(arrayOf("image/*"))
         }
         findViewById<Button>(R.id.kuroba_menu_button).setOnClickListener {
             startActivity(Intent(this, KurobaActivity::class.java))

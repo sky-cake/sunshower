@@ -1,6 +1,7 @@
 package org.ayasequart.sunshower.video
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.RectF
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
@@ -33,14 +34,19 @@ import kotlinx.coroutines.withContext
 import org.ayasequart.sunshower.R
 import org.ayasequart.sunshower.edit.CropUtils
 import org.ayasequart.sunshower.edit.OverlayView
+import org.ayasequart.sunshower.edit.PaletteController
 import org.ayasequart.sunshower.settings.SettingsStore
 import org.ayasequart.sunshower.ui.BusySpinner
+import org.ayasequart.sunshower.ui.StatusMessage
 import org.ayasequart.sunshower.ui.applySystemBarInsets
+import org.ayasequart.sunshower.util.durationText
 import org.ayasequart.sunshower.util.displayName
+import org.ayasequart.sunshower.util.extForMime
 import org.ayasequart.sunshower.util.formatBytes
+import org.ayasequart.sunshower.util.sanitizedFileName
+import org.ayasequart.sunshower.util.uriBaseName
 import java.io.File
 import java.io.IOException
-import java.util.Locale
 import kotlin.math.roundToInt
 
 class VideoActivity : ComponentActivity() {
@@ -77,15 +83,21 @@ class VideoActivity : ComponentActivity() {
     private lateinit var videoTabVideo: Button
     private lateinit var videoTabAudio: Button
     private lateinit var videoTabTrim: Button
+    private lateinit var videoTabOverlay: Button
+    private lateinit var cropControls: View
+    private lateinit var overlayControls: View
+    private lateinit var videoBorderRow: View
+    private lateinit var videoStrokeBar: SeekBar
+    private lateinit var palette: PaletteController
     private lateinit var sectionTrim: View
     private lateinit var trimPreview: OverlayView
     private lateinit var trimOverlay: TrimOverlayView
     private lateinit var trimTimeText: TextView
+    private lateinit var savedMessage: StatusMessage
     private var section = SECTION_VIDEO
 
     private var pickedUri: Uri? = null
     private var info: VideoInfo? = null
-    private var savedMessageJob: Job? = null
     private var busy = false
     private var cropRect: RectF? = null
     private var decodedFrame: Bitmap? = null
@@ -150,15 +162,23 @@ class VideoActivity : ComponentActivity() {
         videoTabVideo = findViewById(R.id.video_tab_video)
         videoTabAudio = findViewById(R.id.video_tab_audio)
         videoTabTrim = findViewById(R.id.video_tab_trim)
+        videoTabOverlay = findViewById(R.id.video_tab_overlay)
+        cropControls = findViewById(R.id.video_crop_controls)
+        overlayControls = findViewById(R.id.video_overlay_controls)
+        videoBorderRow = findViewById(R.id.video_border_row)
+        videoStrokeBar = findViewById(R.id.video_stroke_bar)
         sectionTrim = findViewById(R.id.section_trim)
         trimPreview = findViewById(R.id.trim_preview_view)
         trimOverlay = findViewById(R.id.trim_overlay)
         trimTimeText = findViewById(R.id.trim_time_text)
+        savedMessage = StatusMessage(lifecycleScope, statusText)
         videoTabCrop.setOnClickListener { selectSection(SECTION_CROP) }
         videoTabVideo.setOnClickListener { selectSection(SECTION_VIDEO) }
         videoTabAudio.setOnClickListener { selectSection(SECTION_AUDIO) }
         videoTabTrim.setOnClickListener { selectSection(SECTION_TRIM) }
+        videoTabOverlay.setOnClickListener { selectSection(SECTION_OVERLAY) }
         setupCropControls()
+        setupOverlayControls()
         setupTrimControls()
 
         qualityBar.progress = 4
@@ -339,6 +359,32 @@ class VideoActivity : ComponentActivity() {
         endCropUi()
     }
 
+    private fun setupOverlayControls() {
+        palette = PaletteController(this, findViewById(R.id.video_palette_row)) {
+            videoOverlay.updateSelectedColor(it)
+        }
+        palette.build()
+        findViewById<Button>(R.id.video_add_rect_button).setOnClickListener {
+            videoOverlay.addOverlay(palette.selectedColor)
+        }
+        findViewById<Button>(R.id.video_add_border_button).setOnClickListener {
+            videoOverlay.addOutline(palette.selectedColor)
+            videoBorderRow.visibility = View.VISIBLE
+        }
+        findViewById<Button>(R.id.video_delete_button).setOnClickListener {
+            videoOverlay.deleteSelected()
+        }
+        videoStrokeBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
+                videoOverlay.setStrokeWidth(progress.coerceAtLeast(1))
+            }
+
+            override fun onStartTrackingTouch(bar: SeekBar) {}
+
+            override fun onStopTrackingTouch(bar: SeekBar) {}
+        })
+    }
+
     private fun setupTrimControls() {
         trimOverlay.listener = object : TrimOverlayView.Listener {
             override fun onTrimChanged(startFraction: Float, endFraction: Float, activeFraction: Float) {
@@ -456,7 +502,7 @@ class VideoActivity : ComponentActivity() {
 
     private fun onPicked(uri: Uri) {
         applyButton.isEnabled = false
-        statusText.text = ""
+        savedMessage.clear()
         estimateText.text = ""
         trimPreviewJob?.cancel()
         trimPreviewJob = null
@@ -464,10 +510,8 @@ class VideoActivity : ComponentActivity() {
         releaseTrimRetriever()
         trimStartMs = 0L
         trimEndMs = -1L
-        val fullName = uri.displayName(this)
-        if (fullName != null) {
-            val base = fullName.substringBeforeLast('.').trim()
-            if (base.isNotEmpty()) fileNameInput.setText(base)
+        uriBaseName(uri.displayName(this))?.let {
+            fileNameInput.setText(it)
         }
         lifecycleScope.launch(Dispatchers.IO) {
             val probed = VideoInfo.probe(this@VideoActivity, uri)
@@ -517,7 +561,7 @@ class VideoActivity : ComponentActivity() {
             fileInfoText.text = ""
             return
         }
-        fileInfoText.text = getString(R.string.video_file_info, parts.joinToString(", "))
+        fileInfoText.text = getString(R.string.file_info, parts.joinToString(", "))
     }
 
     private class CompressChoice(
@@ -666,13 +710,17 @@ class VideoActivity : ComponentActivity() {
     private fun selectSection(target: Int) {
         section = target
         sectionVideo.visibility = if (target == SECTION_VIDEO) View.VISIBLE else View.GONE
-        sectionCrop.visibility = if (target == SECTION_CROP) View.VISIBLE else View.GONE
+        sectionCrop.visibility =
+            if (target == SECTION_CROP || target == SECTION_OVERLAY) View.VISIBLE else View.GONE
+        cropControls.visibility = if (target == SECTION_CROP) View.VISIBLE else View.GONE
+        overlayControls.visibility = if (target == SECTION_OVERLAY) View.VISIBLE else View.GONE
         sectionAudio.visibility = if (target == SECTION_AUDIO) View.VISIBLE else View.GONE
         sectionTrim.visibility = if (target == SECTION_TRIM) View.VISIBLE else View.GONE
         videoTabCrop.alpha = if (target == SECTION_CROP) 1f else 0.4f
         videoTabVideo.alpha = if (target == SECTION_VIDEO) 1f else 0.4f
         videoTabAudio.alpha = if (target == SECTION_AUDIO) 1f else 0.4f
         videoTabTrim.alpha = if (target == SECTION_TRIM) 1f else 0.4f
+        videoTabOverlay.alpha = if (target == SECTION_OVERLAY) 1f else 0.4f
     }
 
     private fun onVideoSettingsChanged() {
@@ -769,8 +817,7 @@ class VideoActivity : ComponentActivity() {
         val uri = pickedUri ?: return@launch
         val i = info ?: return@launch
         setBusy(true)
-        savedMessageJob?.cancel()
-        statusText.text = ""
+        savedMessage.clear()
         try {
             val dir = File(cacheDir, "video_out")
             dir.mkdirs()
@@ -779,6 +826,13 @@ class VideoActivity : ComponentActivity() {
             val outFile = File(dir, "out_${System.currentTimeMillis()}$fileExt")
             val (w, h) = outputDims(i)
             val targetHeight = selectedTargetHeight()?.let { h }
+            val overlayBitmap = if (videoOverlay.hasOverlays() && w > 0 && h > 0) {
+                Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also {
+                    videoOverlay.drawOverlays(Canvas(it), w, h)
+                }
+            } else {
+                null
+            }
             val output = VideoProcessor.runTransformer(
                 this@VideoActivity,
                 uri,
@@ -797,12 +851,10 @@ class VideoActivity : ComponentActivity() {
                 trimStartMs = trimStartMs,
                 trimEndMs = if (trimEndMs < 0) C.TIME_END_OF_SOURCE else trimEndMs,
                 cropRect = CropUtils.evenCrop(cropRect, i.width, i.height),
+                overlayBitmap = overlayBitmap,
                 onProgress = { p -> runOnUiThread { updateProgress(p) } }
             )
-            val base = fileNameInput.text.toString()
-                .trim()
-                .replace(Regex("[\\\\/:*?\"<>|]"), "")
-                .ifEmpty { "video" }
+            val base = fileNameInput.text.toString().sanitizedFileName("video")
             val ext = extForMime(output.mime)
             val savedUri = withContext(Dispatchers.IO) {
                 VideoSaver.saveFile(this@VideoActivity, output.file, "$base$ext", output.mime, true)
@@ -824,8 +876,7 @@ class VideoActivity : ComponentActivity() {
         val i = info ?: return
         if (!i.hasAudio) return
         setBusy(true)
-        savedMessageJob?.cancel()
-        statusText.text = ""
+        savedMessage.clear()
         try {
             val dir = File(cacheDir, "video_out")
             dir.mkdirs()
@@ -841,10 +892,7 @@ class VideoActivity : ComponentActivity() {
                 trimEndUs = if (trimEndMs < 0) -1L else trimEndMs * 1000,
                 onProgress = { p -> runOnUiThread { updateProgress(p) } }
             )
-            val base = fileNameInput.text.toString()
-                .trim()
-                .replace(Regex("[\\\\/:*?\"<>|]"), "")
-                .ifEmpty { "audio" }
+            val base = fileNameInput.text.toString().sanitizedFileName("audio")
             val ext = extForMime(output.mime)
             val savedUri = withContext(Dispatchers.IO) {
                 VideoSaver.saveFile(this@VideoActivity, output.file, "$base$ext", output.mime, false)
@@ -861,21 +909,9 @@ class VideoActivity : ComponentActivity() {
         }
     }
 
-    private fun extForMime(mime: String): String = when (mime) {
-        "video/webm", "audio/webm" -> ".webm"
-        "audio/mp4" -> ".m4a"
-        else -> ".mp4"
-    }
-
-    private fun durationText(durationUs: Long): String? {
-        if (durationUs <= 0) return null
-        val totalSeconds = durationUs / 1_000_000L
-        return "%d:%02d".format(Locale.US, totalSeconds / 60, totalSeconds % 60)
-    }
-
     private fun updateProgress(percent: Int) {
-        savedMessageJob?.cancel()
-        statusText.text = getString(R.string.video_processing, percent.coerceIn(0, 100))
+        savedMessage.cancel()
+        statusText.text = getString(R.string.processing_percent, percent.coerceIn(0, 100))
     }
 
     private fun setBusy(value: Boolean) {
@@ -887,12 +923,7 @@ class VideoActivity : ComponentActivity() {
     }
 
     private fun onSaved(directory: String) {
-        savedMessageJob?.cancel()
-        statusText.text = getString(R.string.video_saved_to, directory)
-        savedMessageJob = lifecycleScope.launch {
-            delay(SAVED_MESSAGE_MS)
-            statusText.text = ""
-        }
+        savedMessage.show(getString(R.string.video_saved_to, directory))
     }
 
     companion object {
@@ -901,6 +932,6 @@ class VideoActivity : ComponentActivity() {
         private const val SECTION_VIDEO = 1
         private const val SECTION_AUDIO = 2
         private const val SECTION_TRIM = 3
-        private const val SAVED_MESSAGE_MS = 3000L
+        private const val SECTION_OVERLAY = 4
     }
 }

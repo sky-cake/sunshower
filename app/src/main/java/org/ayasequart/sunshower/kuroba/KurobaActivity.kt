@@ -17,13 +17,14 @@ import androidx.lifecycle.lifecycleScope
 import org.ayasequart.sunshower.R
 import org.ayasequart.sunshower.gif.GifSaver
 import org.ayasequart.sunshower.ui.BusySpinner
+import org.ayasequart.sunshower.ui.StatusMessage
 import org.ayasequart.sunshower.ui.applySystemBarInsets
 import org.ayasequart.sunshower.util.displayName
 import org.ayasequart.sunshower.util.fileSize
 import org.ayasequart.sunshower.util.formatBytes
+import org.ayasequart.sunshower.util.sanitizedFileName
+import org.ayasequart.sunshower.util.uriBaseName
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -51,24 +52,20 @@ class KurobaActivity : ComponentActivity() {
     private var pickedWidth = 0
     private var pickedHeight = 0
     private var currentFormat: Bitmap.CompressFormat? = null
-    private var savedMessageJob: Job? = null
+    private lateinit var savedMessage: StatusMessage
     private val busySpinner = BusySpinner(this)
 
     private val pickMedia = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             pickedUri = uri
             applyButton.isEnabled = true
-            statusText.text = ""
+            savedMessage.clear()
             readPickedDimensions(uri)
             currentFormat = contentResolver.openInputStream(uri)?.use {
                 ImageReencoder.getImageFormat(it)
             }
-            val fullName = uri.displayName(this)
-            if (fullName != null) {
-                val base = fullName.substringBeforeLast('.').trim()
-                if (base.isNotEmpty()) {
-                    fileNameInput.setText(base)
-                }
+            uriBaseName(uri.displayName(this))?.let {
+                fileNameInput.setText(it)
             }
             val parts = ArrayList<String>()
             if (pickedWidth > 0 && pickedHeight > 0) {
@@ -81,7 +78,7 @@ class KurobaActivity : ComponentActivity() {
             fileInfoText.text = if (parts.isEmpty()) {
                 ""
             } else {
-                getString(R.string.kuroba_file_info, parts.joinToString(", "))
+                getString(R.string.file_info, parts.joinToString(", "))
             }
             updateExtLabel()
             updateReduceLabel(reduceBar.progress)
@@ -103,6 +100,7 @@ class KurobaActivity : ComponentActivity() {
         pickButton = findViewById(R.id.kuroba_pick_button)
         applyButton = findViewById(R.id.kuroba_apply_button)
         fileNameInput = findViewById(R.id.kuroba_file_name_input)
+        savedMessage = StatusMessage(lifecycleScope, statusText)
         checksumSwitch = findViewById(R.id.change_checksum_switch)
         exifSwitch = findViewById(R.id.fix_exif_switch)
         metadataSwitch = findViewById(R.id.remove_metadata_switch)
@@ -198,9 +196,7 @@ class KurobaActivity : ComponentActivity() {
     private fun optionsFromUi(): KurobaOptions {
         return KurobaOptions(
             fileName = fileNameInput.text.toString()
-                .trim()
-                .replace(Regex("[\\\\/:*?\"<>|]"), "")
-                .ifEmpty { KurobaOptions.DEFAULT_FILE_NAME },
+                .sanitizedFileName(KurobaOptions.DEFAULT_FILE_NAME),
             changeChecksum = checksumSwitch.isChecked,
             fixExif = exifSwitch.isChecked,
             removeMetadata = metadataSwitch.isChecked,
@@ -245,7 +241,11 @@ class KurobaActivity : ComponentActivity() {
         } else {
             raw
         }
-        withContext(Dispatchers.Main) { setBusy(true) }
+        withContext(Dispatchers.Main) {
+            setBusy(true)
+            savedMessage.cancel()
+            statusText.text = getString(R.string.processing)
+        }
         try {
             val resolver = contentResolver
             val sourceFormat = resolver.openInputStream(uri)?.use {
@@ -280,7 +280,7 @@ class KurobaActivity : ComponentActivity() {
             withContext(Dispatchers.Main) { onSaved() }
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
-                savedMessageJob?.cancel()
+                savedMessage.cancel()
                 val reason = e.message ?: e.javaClass.simpleName
                 statusText.text = getString(R.string.save_failed_reason, reason)
             }
@@ -296,16 +296,10 @@ class KurobaActivity : ComponentActivity() {
     }
 
     private fun onSaved() {
-        savedMessageJob?.cancel()
-        statusText.setText(R.string.saved)
-        savedMessageJob = lifecycleScope.launch {
-            delay(SAVED_MESSAGE_MS)
-            statusText.text = ""
-        }
+        savedMessage.show(getString(R.string.saved))
     }
 
     companion object {
-        private const val SAVED_MESSAGE_MS = 3000L
         private const val MAX_REDUCE_PERCENT = 95
     }
 }

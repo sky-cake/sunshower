@@ -14,6 +14,7 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import org.ayasequart.sunshower.R
 import org.ayasequart.sunshower.ui.applySystemBarInsets
+import org.ayasequart.sunshower.util.sanitizedFileName
 
 class SettingsActivity : ComponentActivity() {
 
@@ -83,9 +84,7 @@ class SettingsActivity : ComponentActivity() {
                 else -> 2
             }
             val fileName = fileNameInput.text.toString()
-                .trim()
-                .replace(Regex("[\\\\/:*?\"<>|]"), "")
-                .ifEmpty { SettingsStore.DEFAULT_FILE_NAME }
+                .sanitizedFileName(SettingsStore.DEFAULT_FILE_NAME)
             val s = Settings(
                 fpsBar.progress + 1,
                 shortSides[resolutionSpinner.selectedItemPosition.coerceAtLeast(0)],

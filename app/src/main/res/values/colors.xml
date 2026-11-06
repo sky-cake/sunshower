@@ -12,4 +12,7 @@
     <color name="surface_dim">#FF1A1A1A</color>
     <color name="surface_card">#FF2C2C2C</color>
     <color name="accent">#FF3E5876</color>
+    <color name="text_dim">#FF888888</color>
+    <color name="text_bright">#FFFAFAFA</color>
+    <color name="scrim_light">#66000000</color>
 </resources>

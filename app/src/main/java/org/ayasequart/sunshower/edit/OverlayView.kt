@@ -167,6 +167,8 @@ class OverlayView @JvmOverloads constructor(
         return true
     }
 
+    fun hasOverlays(): Boolean = overlays.isNotEmpty()
+
     fun drawOverlays(canvas: Canvas, width: Int, height: Int) {
         val shortSide = minOf(width, height).toFloat()
         for (o in overlays) {
