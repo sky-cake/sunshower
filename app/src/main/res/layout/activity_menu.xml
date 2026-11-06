@@ -20,39 +20,70 @@
             android:maxHeight="220dp"
             android:src="@drawable/logo" />
 
-        <Button
-            android:id="@+id/take_gif_button"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:text="@string/take_gif" />
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/edit_menu_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:text="@string/menu_image" />
+            <Button
+                android:id="@+id/take_gif_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:text="@string/take_gif" />
 
-        <Button
-            android:id="@+id/video_menu_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:text="@string/menu_video" />
+            <Button
+                android:id="@+id/edit_menu_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/menu_image" />
+        </LinearLayout>
 
-        <Button
-            android:id="@+id/audio_menu_button"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:text="@string/menu_audio" />
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/kuroba_menu_button"
+            <Button
+                android:id="@+id/video_menu_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:text="@string/menu_video" />
+
+            <Button
+                android:id="@+id/audio_menu_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/menu_audio" />
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/kuroba" />
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/kuroba_menu_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:text="@string/kuroba" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+        </LinearLayout>
     </LinearLayout>
 
     <ImageButton

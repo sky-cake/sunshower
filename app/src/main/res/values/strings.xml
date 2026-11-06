@@ -53,7 +53,9 @@
     <string name="load_failed">Could not load file</string>
     <string name="add_rect">Rect</string>
     <string name="add_border">Border</string>
+    <string name="draw">Draw</string>
     <string name="delete">Delete</string>
+    <string name="undo">Undo</string>
     <string name="stroke_width">Stroke</string>
     <string name="save">Save</string>
     <string name="crop">Crop</string>

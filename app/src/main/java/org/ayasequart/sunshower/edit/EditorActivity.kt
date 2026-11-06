@@ -45,6 +45,7 @@ class EditorActivity : ComponentActivity() {
     private lateinit var actionsRow: View
     private lateinit var cropBar: View
     private lateinit var optionsButton: Button
+    private lateinit var drawButton: Button
 
     private var sourceUri: Uri? = null
     private var sourceFormat: Bitmap.CompressFormat? = null
@@ -69,26 +70,35 @@ class EditorActivity : ComponentActivity() {
         actionsRow = findViewById(R.id.actions_row)
         cropBar = findViewById(R.id.crop_bar)
         optionsButton = findViewById(R.id.options_button)
+        drawButton = findViewById(R.id.draw_button)
         findViewById<View>(android.R.id.content).applySystemBarInsets(
             extraBottomPx = (24 * resources.displayMetrics.density).toInt()
         )
         paletteRow = findViewById(R.id.palette_row)
         palette = PaletteController(this, findViewById(R.id.palette_row)) {
             overlayView.updateSelectedColor(it)
+            overlayView.setDrawColor(it)
         }
         palette.build()
 
         findViewById<Button>(R.id.crop_button).setOnClickListener { beginCrop() }
+        findViewById<Button>(R.id.draw_button).setOnClickListener { toggleDraw() }
         findViewById<Button>(R.id.add_rect_button).setOnClickListener {
+            exitDrawMode()
             overlayView.addOverlay(palette.selectedColor)
         }
         findViewById<Button>(R.id.add_border_button).setOnClickListener {
+            exitDrawMode()
             overlayView.addOutline(palette.selectedColor)
             hasBorder = true
             borderRow.visibility = View.VISIBLE
         }
         findViewById<Button>(R.id.delete_button).setOnClickListener {
-            overlayView.deleteSelected()
+            if (overlayView.isDrawMode()) {
+                overlayView.undoLastStroke()
+            } else {
+                overlayView.deleteSelected()
+            }
         }
         optionsButton.setOnClickListener { showOptions() }
         findViewById<Button>(R.id.save_button).setOnClickListener {
@@ -141,9 +151,29 @@ class EditorActivity : ComponentActivity() {
     }
 
     private fun beginCrop() {
+        exitDrawMode()
         overlayView.beginCrop()
         findViewById<Spinner>(R.id.crop_aspect_spinner).setSelection(0)
         setCropUi(true)
+    }
+
+    private fun toggleDraw() {
+        if (overlayView.isDrawMode()) {
+            exitDrawMode()
+        } else {
+            overlayView.setDrawMode(true)
+            overlayView.setDrawColor(palette.selectedColor)
+            drawButton.setText(R.string.done)
+            borderRow.visibility = View.VISIBLE
+        }
+    }
+
+    private fun exitDrawMode() {
+        if (overlayView.isDrawMode()) {
+            overlayView.setDrawMode(false)
+            drawButton.setText(R.string.draw)
+            borderRow.visibility = if (hasBorder) View.VISIBLE else View.GONE
+        }
     }
 
     private fun setCropUi(cropping: Boolean) {

@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.RectF
 import android.util.AttributeSet
@@ -24,6 +25,12 @@ class OverlayView @JvmOverloads constructor(
         var strokeFraction: Float
     )
 
+    class StrokeOverlay(
+        val points: ArrayList<PointF>,
+        var color: Int,
+        var strokeFraction: Float
+    )
+
     private var base: Bitmap? = null
     private val displayRect = RectF()
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -32,17 +39,27 @@ class OverlayView @JvmOverloads constructor(
     }
     private val handlePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val dimPaint = Paint()
+    private val pathPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
     private val cropStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         color = Color.WHITE
     }
     private val overlays = ArrayList<RectOverlay>()
+    private val strokes = ArrayList<StrokeOverlay>()
     private var selected: RectOverlay? = null
     private var dragging = false
     private var resizing = false
     private val touchPoint = PointF()
     private val handleRadius = resources.displayMetrics.density * 16f
     private var defaultStrokeFraction = 6f / 200f
+
+    private var drawMode = false
+    private var drawColor = Color.WHITE
+    private var currentStroke: StrokeOverlay? = null
 
     private var cropMode = false
     private val cropRect = RectF(0f, 0f, 1f, 1f)
@@ -116,6 +133,28 @@ class OverlayView @JvmOverloads constructor(
                 val nb = ((r.bottom - c.top) / c.height()).coerceIn(0f, 1f)
                 r.set(nl, nt, nr, nb)
             }
+            val st = strokes.iterator()
+            while (st.hasNext()) {
+                val s = st.next()
+                val kept = ArrayList<PointF>()
+                for (p in s.points) {
+                    if (p.x <= c.left || p.x >= c.right || p.y <= c.top || p.y >= c.bottom) {
+                        continue
+                    }
+                    kept.add(
+                        PointF(
+                            (p.x - c.left) / c.width(),
+                            (p.y - c.top) / c.height()
+                        )
+                    )
+                }
+                if (kept.size >= 2) {
+                    s.points.clear()
+                    s.points.addAll(kept)
+                } else {
+                    st.remove()
+                }
+            }
         }
         cropMode = false
         cropDragging = false
@@ -144,6 +183,26 @@ class OverlayView @JvmOverloads constructor(
         invalidate()
     }
 
+    fun setDrawMode(enabled: Boolean) {
+        drawMode = enabled
+        selected = null
+        currentStroke = null
+        invalidate()
+    }
+
+    fun isDrawMode(): Boolean = drawMode
+
+    fun setDrawColor(color: Int) {
+        drawColor = color
+    }
+
+    fun undoLastStroke(): Boolean {
+        if (strokes.isEmpty()) return false
+        strokes.removeAt(strokes.size - 1)
+        invalidate()
+        return true
+    }
+
     fun setStrokeWidth(steps: Int) {
         val fraction = steps / 200f
         defaultStrokeFraction = fraction
@@ -167,7 +226,7 @@ class OverlayView @JvmOverloads constructor(
         return true
     }
 
-    fun hasOverlays(): Boolean = overlays.isNotEmpty()
+    fun hasOverlays(): Boolean = overlays.isNotEmpty() || strokes.isNotEmpty()
 
     fun drawOverlays(canvas: Canvas, width: Int, height: Int) {
         val shortSide = minOf(width, height).toFloat()
@@ -193,6 +252,31 @@ class OverlayView @JvmOverloads constructor(
                 )
             }
         }
+        for (s in strokes) {
+            drawStrokePath(canvas, s, 0f, 0f, width.toFloat(), height.toFloat(), shortSide)
+        }
+    }
+
+    private fun drawStrokePath(
+        canvas: Canvas,
+        s: StrokeOverlay,
+        offsetX: Float,
+        offsetY: Float,
+        width: Float,
+        height: Float,
+        shortSide: Float
+    ) {
+        if (s.points.isEmpty()) return
+        val path = Path()
+        val first = s.points.first()
+        path.moveTo(offsetX + first.x * width, offsetY + first.y * height)
+        for (i in 1 until s.points.size) {
+            val p = s.points[i]
+            path.lineTo(offsetX + p.x * width, offsetY + p.y * height)
+        }
+        pathPaint.color = s.color
+        pathPaint.strokeWidth = s.strokeFraction * shortSide
+        canvas.drawPath(path, pathPaint)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -233,6 +317,18 @@ class OverlayView @JvmOverloads constructor(
                 strokePaint.strokeWidth = o.strokeFraction * shortSide
                 canvas.drawRect(screen, strokePaint)
             }
+        }
+        for (s in strokes) {
+            drawStrokePath(
+                canvas, s, displayRect.left, displayRect.top,
+                displayRect.width(), displayRect.height(), shortSide
+            )
+        }
+        currentStroke?.let {
+            drawStrokePath(
+                canvas, it, displayRect.left, displayRect.top,
+                displayRect.width(), displayRect.height(), shortSide
+            )
         }
         selected?.let {
             drawHandle(canvas, bottomRightOf(it))
@@ -279,6 +375,9 @@ class OverlayView @JvmOverloads constructor(
         if (cropMode) {
             return onTouchCrop(event, x, y)
         }
+        if (drawMode && base != null) {
+            return onTouchDraw(event)
+        }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 val sel = selected
@@ -322,6 +421,44 @@ class OverlayView @JvmOverloads constructor(
             }
         }
         return super.onTouchEvent(event)
+    }
+
+    private fun onTouchDraw(event: MotionEvent): Boolean {
+        if (displayRect.width() <= 0f || displayRect.height() <= 0f) return true
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                (parent as? ViewGroup)?.requestDisallowInterceptTouchEvent(true)
+                val n = toNormalized(PointF(event.x, event.y))
+                val p = PointF(n.x.coerceIn(0f, 1f), n.y.coerceIn(0f, 1f))
+                currentStroke = StrokeOverlay(arrayListOf(p), drawColor, defaultStrokeFraction)
+                invalidate()
+                return true
+            }
+
+            MotionEvent.ACTION_MOVE -> {
+                val s = currentStroke ?: return true
+                val n = toNormalized(PointF(event.x, event.y))
+                s.points.add(PointF(n.x.coerceIn(0f, 1f), n.y.coerceIn(0f, 1f)))
+                invalidate()
+                return true
+            }
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                val s = currentStroke
+                currentStroke = null
+                if (s != null) {
+                    if (s.points.size == 1) {
+                        val p = s.points.first()
+                        s.points.add(PointF(p.x + 0.001f, p.y + 0.001f))
+                    }
+                    strokes.add(s)
+                }
+                (parent as? ViewGroup)?.requestDisallowInterceptTouchEvent(false)
+                invalidate()
+                return true
+            }
+        }
+        return true
     }
 
     private fun onTouchCrop(event: MotionEvent, x: Float, y: Float): Boolean {

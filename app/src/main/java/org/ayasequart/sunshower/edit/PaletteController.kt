@@ -178,11 +178,8 @@ class PaletteController(
         private const val PREFS_NAME = "editor_palette"
         private const val KEY_RECENT_COLORS = "recent_colors"
         private val PALETTE = intArrayOf(
-            0xFF212121.toInt(),
-            0xFFFAFAFA.toInt(),
-            0xFF1E88E5.toInt(),
-            0xFF43A047.toInt(),
-            0xFFE53935.toInt()
+            Color.BLACK,
+            Color.WHITE
         )
     }
 }
