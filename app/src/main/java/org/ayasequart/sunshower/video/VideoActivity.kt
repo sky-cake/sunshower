@@ -111,6 +111,8 @@ class VideoActivity : ComponentActivity() {
     private var trimStartMs = 0L
     private var trimEndMs = -1L
     private var trimRetriever: MediaMetadataRetriever? = null
+    private var frameTimesUs: LongArray = LongArray(0)
+    private var lastPreviewFrameMs = -1L
     private var trimPreviewJob: Job? = null
     private var pendingPreviewMs = -1L
     private var settlePreviewJob: Job? = null
@@ -434,23 +436,45 @@ class VideoActivity : ComponentActivity() {
         }
     }
 
+    private fun snapToFrameMs(positionMs: Long): Long {
+        val times = frameTimesUs
+        if (times.isEmpty()) return positionMs
+        val targetUs = positionMs * 1000
+        var lo = 0
+        var hi = times.size - 1
+        while (lo < hi) {
+            val mid = (lo + hi) ushr 1
+            if (times[mid] < targetUs) lo = mid + 1 else hi = mid
+        }
+        val best = if (lo > 0 && times[lo] - targetUs > targetUs - times[lo - 1]) {
+            times[lo - 1]
+        } else {
+            times[lo]
+        }
+        return (best + 500) / 1000
+    }
+
     private fun updateTrimPreview(positionMs: Long) {
         if (positionMs < 0) return
+        val pos = snapToFrameMs(positionMs)
         settlePreviewJob?.cancel()
         if (trimPreviewJob?.isActive == true) {
-            pendingPreviewMs = positionMs
+            pendingPreviewMs = pos
             return
         }
         trimPreviewJob = lifecycleScope.launch {
-            var pos = positionMs
-            while (pos >= 0) {
-                val frame = withContext(Dispatchers.IO) {
-                    retrieverMutex.withLock { decodeFrameAt(pos, false) }
+            var next = pos
+            while (next >= 0) {
+                if (next != lastPreviewFrameMs) {
+                    val frame = withContext(Dispatchers.IO) {
+                        retrieverMutex.withLock { decodeFrameAt(next, true, PREVIEW_SHORT_SIDE) }
+                    }
+                    if (frame != null) {
+                        lastPreviewFrameMs = next
+                        trimPreview.setBase(frame)
+                    }
                 }
-                if (frame != null) {
-                    trimPreview.setBase(frame)
-                }
-                pos = pendingPreviewMs
+                next = pendingPreviewMs
                 pendingPreviewMs = -1L
             }
         }
@@ -458,13 +482,15 @@ class VideoActivity : ComponentActivity() {
 
     private fun settleTrimPreview(positionMs: Long) {
         if (positionMs < 0) return
+        val pos = snapToFrameMs(positionMs)
         trimPreviewJob?.cancel()
         settlePreviewJob?.cancel()
         settlePreviewJob = lifecycleScope.launch {
             val frame = withContext(Dispatchers.IO) {
-                retrieverMutex.withLock { decodeFrameAt(positionMs, true) }
+                retrieverMutex.withLock { decodeFrameAt(pos, true) }
             }
             if (frame != null) {
+                lastPreviewFrameMs = pos
                 trimPreview.setBase(frame)
             }
         }
@@ -488,7 +514,7 @@ class VideoActivity : ComponentActivity() {
         }
     }
 
-    private fun decodeFrameAt(positionMs: Long, exact: Boolean): Bitmap? {
+    private fun decodeFrameAt(positionMs: Long, exact: Boolean, shortSide: Int = SettingsStore.load(this).shortSide): Bitmap? {
         val retriever = trimRetriever ?: return null
         return try {
             val option = if (exact && Build.VERSION.SDK_INT >= 27) {
@@ -496,8 +522,19 @@ class VideoActivity : ComponentActivity() {
             } else {
                 MediaMetadataRetriever.OPTION_CLOSEST_SYNC
             }
-            val frame = retriever.getFrameAtTime(positionMs * 1000, option) ?: return null
-            val shortSide = SettingsStore.load(this).shortSide
+            val i = info
+            val frame = if (i != null && i.width > 0 && i.height > 0 &&
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1
+            ) {
+                val landscape = i.width >= i.height
+                val dstW = if (landscape) shortSide * i.width / i.height else shortSide
+                val dstH = if (landscape) shortSide else shortSide * i.height / i.width
+                retriever.getScaledFrameAtTime(
+                    positionMs * 1000, option, dstW.coerceAtLeast(1), dstH.coerceAtLeast(1)
+                )
+            } else {
+                retriever.getFrameAtTime(positionMs * 1000, option)
+            } ?: return null
             val scale = shortSide.toFloat() / minOf(frame.width, frame.height).coerceAtLeast(1)
             Bitmap.createScaledBitmap(
                 frame,
@@ -621,6 +658,8 @@ class VideoActivity : ComponentActivity() {
         thumbnailJob?.cancel()
         thumbnailJob = null
         pendingPreviewMs = -1L
+        frameTimesUs = LongArray(0)
+        lastPreviewFrameMs = -1L
         releaseTrimRetriever()
         trimStartMs = 0L
         trimEndMs = -1L
@@ -652,6 +691,7 @@ class VideoActivity : ComponentActivity() {
             }
             withContext(Dispatchers.Main) {
                 if (pickedUri == uri) {
+                    frameTimesUs = frameTimes
                     trimOverlay.setFrameTimesUs(frameTimes)
                 }
             }
@@ -1062,5 +1102,6 @@ class VideoActivity : ComponentActivity() {
         private const val SECTION_TRIM = 3
         private const val SECTION_OVERLAY = 4
         private const val THUMBNAIL_DEBOUNCE_MS = 100L
+        private const val PREVIEW_SHORT_SIDE = 480
     }
 }

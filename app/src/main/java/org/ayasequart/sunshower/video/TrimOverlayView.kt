@@ -51,6 +51,8 @@ class TrimOverlayView @JvmOverloads constructor(
     private var dragStartY = 0f
     private var lastTouchX = 0f
     private var virtualX = 0f
+    private var handleVisLeft = 0f
+    private var handleVisRight = 0f
 
     private val thumbnailCache = object : LinkedHashMap<Long, Bitmap>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, Bitmap>): Boolean {
@@ -131,8 +133,9 @@ class TrimOverlayView @JvmOverloads constructor(
         canvas.restoreToCount(save)
 
         drawEdgeLabels(canvas)
-        drawHandle(canvas, selLeft)
-        drawHandle(canvas, selRight)
+        layoutHandles()
+        drawHandle(canvas, handleVisLeft)
+        drawHandle(canvas, handleVisRight)
     }
 
     private fun drawThumbnails(canvas: Canvas) {
@@ -208,8 +211,9 @@ class TrimOverlayView @JvmOverloads constructor(
                 dragStartY = event.y
                 lastTouchX = x
                 virtualX = x
-                val dStart = Math.abs(x - barLeft(startFraction))
-                val dEnd = Math.abs(x - barLeft(endFraction))
+                layoutHandles()
+                val dStart = Math.abs(x - handleVisLeft)
+                val dEnd = Math.abs(x - handleVisRight)
                 dragHandle = if (dStart <= dEnd) HANDLE_START else HANDLE_END
                 updateTrim(virtualX)
                 return true
@@ -267,6 +271,20 @@ class TrimOverlayView @JvmOverloads constructor(
     private fun barLeft(fraction: Float): Float =
         barRect.left + fraction * barRect.width()
 
+    private fun layoutHandles() {
+        val rawLeft = barLeft(startFraction)
+        val rawRight = barLeft(endFraction)
+        val minSep = handleWidth * 0.6f
+        if (rawRight - rawLeft >= minSep) {
+            handleVisLeft = rawLeft
+            handleVisRight = rawRight
+        } else {
+            val mid = (rawLeft + rawRight) / 2f
+            handleVisLeft = mid - minSep / 2f
+            handleVisRight = mid + minSep / 2f
+        }
+    }
+
     private fun xToFraction(x: Float): Float =
         ((x - barRect.left) / barRect.width()).coerceIn(0f, 1f)
 
@@ -293,16 +311,13 @@ class TrimOverlayView @JvmOverloads constructor(
     private fun minRange(): Float {
         val times = frameTimesUs
         val dur = durationUs
-        var range = MIN_RANGE
-        if (times.size >= 2 && dur > 0L) {
-            val step = (times[times.size - 1] - times[times.size - 2]).toFloat()
-            range = maxOf(range, (step / dur).coerceIn(0f, MIN_RANGE))
+        if (dur <= 0L) return MIN_RANGE_FALLBACK
+        val stepUs = if (times.size >= 2) {
+            times[times.size - 1] - times[times.size - 2]
+        } else {
+            MIN_RANGE_US
         }
-        val barW = barRect.width()
-        if (barW > 0f) {
-            range = maxOf(range, handleWidth / barW)
-        }
-        return range
+        return (maxOf(stepUs, MIN_RANGE_US).toFloat() / dur).coerceAtLeast(MIN_RANGE_FALLBACK)
     }
 
     private fun requestThumbnails() {
@@ -336,7 +351,8 @@ class TrimOverlayView @JvmOverloads constructor(
     companion object {
         private const val HANDLE_START = 0
         private const val HANDLE_END = 1
-        private const val MIN_RANGE = 0.02f
+        private const val MIN_RANGE_US = 33_333L
+        private const val MIN_RANGE_FALLBACK = 0.002f
         private const val MIN_SCRUB_SPEED = 0.05f
         private const val MAX_THUMBNAILS = 240
         private const val BAR_COLOR = 0xFF444444.toInt()
