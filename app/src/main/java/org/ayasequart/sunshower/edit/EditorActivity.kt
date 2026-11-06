@@ -93,7 +93,7 @@ class EditorActivity : ComponentActivity() {
             hasBorder = true
             borderRow.visibility = View.VISIBLE
         }
-        findViewById<Button>(R.id.delete_button).setOnClickListener {
+        findViewById<View>(R.id.delete_button).setOnClickListener {
             if (overlayView.isDrawMode()) {
                 overlayView.undoLastStroke()
             } else {
