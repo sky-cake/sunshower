@@ -91,6 +91,7 @@ class VideoActivity : ComponentActivity() {
     private lateinit var cropControls: View
     private lateinit var overlayControls: View
     private lateinit var videoBorderRow: View
+    private lateinit var paletteScroll: View
     private lateinit var videoStrokeBar: SeekBar
     private lateinit var palette: PaletteController
     private lateinit var sectionTrim: View
@@ -105,6 +106,7 @@ class VideoActivity : ComponentActivity() {
     private var busy = false
     private var cropRect: RectF? = null
     private var decodedFrame: Bitmap? = null
+    private var borderRowActive = false
     private val busySpinner = BusySpinner(this)
     private var trimStartMs = 0L
     private var trimEndMs = -1L
@@ -173,6 +175,7 @@ class VideoActivity : ComponentActivity() {
         cropControls = findViewById(R.id.video_crop_controls)
         overlayControls = findViewById(R.id.video_overlay_controls)
         videoBorderRow = findViewById(R.id.video_border_row)
+        paletteScroll = findViewById(R.id.video_palette_scroll)
         videoStrokeBar = findViewById(R.id.video_stroke_bar)
         sectionTrim = findViewById(R.id.section_trim)
         trimPreview = findViewById(R.id.trim_preview_view)
@@ -380,7 +383,8 @@ class VideoActivity : ComponentActivity() {
         }
         findViewById<Button>(R.id.video_add_border_button).setOnClickListener {
             videoOverlay.addOutline(palette.selectedColor)
-            videoBorderRow.visibility = View.VISIBLE
+            borderRowActive = true
+        videoBorderRow.visibility = View.VISIBLE
         }
         findViewById<Button>(R.id.video_delete_button).setOnClickListener {
             videoOverlay.deleteSelected()
@@ -835,6 +839,9 @@ class VideoActivity : ComponentActivity() {
             if (target == SECTION_CROP || target == SECTION_OVERLAY) View.VISIBLE else View.GONE
         cropControls.visibility = if (target == SECTION_CROP) View.VISIBLE else View.GONE
         overlayControls.visibility = if (target == SECTION_OVERLAY) View.VISIBLE else View.GONE
+        paletteScroll.visibility = if (target == SECTION_OVERLAY) View.VISIBLE else View.GONE
+        videoBorderRow.visibility =
+            if (target == SECTION_OVERLAY && borderRowActive) View.VISIBLE else View.GONE
         sectionAudio.visibility = if (target == SECTION_AUDIO) View.VISIBLE else View.GONE
         sectionTrim.visibility = if (target == SECTION_TRIM) View.VISIBLE else View.GONE
         videoTabCrop.alpha = if (target == SECTION_CROP) 1f else 0.4f
