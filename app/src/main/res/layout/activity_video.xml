@@ -257,6 +257,37 @@
                 android:textSize="14sp"
                 android:visibility="gone" />
         </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/section_trim"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="16dp"
+            android:visibility="gone">
+
+            <org.ayasequart.sunshower.edit.OverlayView
+                android:id="@+id/trim_preview_view"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="8dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/trim_time_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textSize="14sp" />
+
+            <org.ayasequart.sunshower.video.TrimOverlayView
+                android:id="@+id/trim_overlay"
+                android:layout_width="match_parent"
+                android:layout_height="72dp"
+                android:layout_marginBottom="8dp" />
+        </LinearLayout>
     </FrameLayout>
 
     <TextView
@@ -297,6 +328,14 @@
             android:layout_marginStart="4dp"
             android:layout_weight="1"
             android:text="@string/video_title" />
+
+        <Button
+            android:id="@+id/video_tab_trim"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:text="@string/trim" />
 
         <Button
             android:id="@+id/video_tab_audio"

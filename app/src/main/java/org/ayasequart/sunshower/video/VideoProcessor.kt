@@ -11,6 +11,7 @@ import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
 import android.os.Build
+import androidx.media3.common.C
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.Clock
@@ -67,6 +68,8 @@ object VideoProcessor {
         audioMime: String?,
         videoBitrateBps: Int?,
         audioBitrateBps: Int?,
+        trimStartMs: Long = 0L,
+        trimEndMs: Long = C.TIME_END_OF_SOURCE,
         cropRect: RectF? = null,
         overlayBitmap: Bitmap? = null,
         onProgress: (Int) -> Unit
@@ -104,7 +107,16 @@ object VideoProcessor {
                         )
                     )
                 }
-                val edited = EditedMediaItem.Builder(MediaItem.fromUri(uri))
+                val mediaItem = MediaItem.Builder()
+                    .setUri(uri)
+                    .setClippingConfiguration(
+                        MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(trimStartMs)
+                            .setEndPositionMs(trimEndMs)
+                            .build()
+                    )
+                    .build()
+                val edited = EditedMediaItem.Builder(mediaItem)
                     .setRemoveAudio(removeAudio)
                     .setEffects(Effects(emptyList(), videoEffects))
                     .build()
@@ -278,6 +290,8 @@ object VideoProcessor {
         passthrough: Boolean,
         bitrateBps: Int,
         durationUs: Long,
+        trimStartUs: Long = 0L,
+        trimEndUs: Long = -1L,
         onProgress: (Int) -> Unit
     ): VideoOutput = withContext(Dispatchers.IO) {
         val pfd = context.contentResolver.openFileDescriptor(uri, "r")
@@ -293,8 +307,11 @@ object VideoProcessor {
                 val inFormat = extractor.getTrackFormat(trackIndex)
                 val srcMime = inFormat.getString(MediaFormat.KEY_MIME)!!
                 extractor.selectTrack(trackIndex)
+                if (trimStartUs > 0) {
+                    extractor.seekTo(trimStartUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+                }
                 if (passthrough) {
-                    passthroughToM4a(extractor, inFormat, outFile)
+                    passthroughToM4a(extractor, inFormat, outFile, trimEndUs)
                 } else {
                     decodeEncode(
                         extractor,
@@ -303,6 +320,8 @@ object VideoProcessor {
                         outFile,
                         bitrateBps,
                         durationUs,
+                        trimStartUs,
+                        trimEndUs,
                         onProgress
                     )
                 }
@@ -315,7 +334,8 @@ object VideoProcessor {
     private fun passthroughToM4a(
         extractor: MediaExtractor,
         inFormat: MediaFormat,
-        outFile: File
+        outFile: File,
+        trimEndUs: Long
     ): VideoOutput {
         val muxer = MediaMuxer(outFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
         try {
@@ -328,11 +348,16 @@ object VideoProcessor {
             }
             val buffer = ByteBuffer.allocateDirect(maxSize)
             val info = MediaCodec.BufferInfo()
+            var firstSampleTimeUs = -1L
             while (true) {
                 val size = extractor.readSampleData(buffer, 0)
                 if (size < 0) break
+                if (trimEndUs >= 0 && extractor.sampleTime > trimEndUs) break
+                if (firstSampleTimeUs < 0) {
+                    firstSampleTimeUs = extractor.sampleTime
+                }
                 info.size = size
-                info.presentationTimeUs = extractor.sampleTime
+                info.presentationTimeUs = extractor.sampleTime - firstSampleTimeUs
                 info.flags = extractor.sampleFlags
                 info.offset = 0
                 muxer.writeSampleData(dst, buffer, info)
@@ -352,6 +377,8 @@ object VideoProcessor {
         outFile: File,
         bitrateBps: Int,
         durationUs: Long,
+        trimStartUs: Long,
+        trimEndUs: Long,
         onProgress: (Int) -> Unit
     ): VideoOutput {
         val outMime = MediaFormat.MIMETYPE_AUDIO_AAC
@@ -409,7 +436,7 @@ object VideoProcessor {
                     if (inIdx >= 0) {
                         val buf = decoder.getInputBuffer(inIdx)!!
                         val size = extractor.readSampleData(buf, 0)
-                        if (size < 0) {
+                        if (size < 0 || (trimEndUs >= 0 && extractor.sampleTime > trimEndUs)) {
                             decoder.queueInputBuffer(
                                 inIdx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM
                             )
@@ -418,9 +445,15 @@ object VideoProcessor {
                             decoder.queueInputBuffer(inIdx, 0, size, extractor.sampleTime, 0)
                             extractor.advance()
                             if (durationUs > 0) {
-                                onProgress(
-                                    (extractor.sampleTime * 100 / durationUs).toInt().coerceIn(0, 99)
-                                )
+                                val progressEnd = if (trimEndUs >= 0) trimEndUs else durationUs
+                                val progressStart = if (trimStartUs < progressEnd) trimStartUs else 0L
+                                val progressDuration = progressEnd - progressStart
+                                if (progressDuration > 0) {
+                                    onProgress(
+                                        ((extractor.sampleTime - progressStart) * 100 / progressDuration)
+                                            .toInt().coerceIn(0, 99)
+                                    )
+                                }
                             }
                         }
                     }
@@ -449,7 +482,7 @@ object VideoProcessor {
                         val buf = decoder.getOutputBuffer(outIdx)!!
                         if (info.size > 0) {
                             if (!havePts) {
-                                firstPtsUs = info.presentationTimeUs
+                                firstPtsUs = 0
                                 havePts = true
                             }
                             queuePcm(

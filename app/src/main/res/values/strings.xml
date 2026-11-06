@@ -105,4 +105,6 @@
     <string name="video_fps_24">24</string>
     <string name="video_fps_25">25</string>
     <string name="video_fps_30">30</string>
+    <string name="trim">Trim</string>
+    <string name="trim_range">%1$s – %2$s / %3$s</string>
 </resources>
