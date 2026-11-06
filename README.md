@@ -10,17 +10,19 @@ Sunshower is a light image editor that allows you to,
     - file naming
 - Overlay rectangles and box frames on media files.
 - Crop media
+- Trim videos
 - Remove and extract audio from videos
 - Apply KurobaEx edits to media
 
 
-| Feature        | Images | GIF | Video |
-| -------------- | ------ | --- | ----- |
-| Capture        |        | ✅  |       |
-| Crop           | ✅     | ✅  | ✅    |
-| Overlay shape  | ✅     | ✅  | ✅    |
-| Compress       | ✅     | ✅  | ✅    |
-| Audio Extract  |        |     | ✅    |
+| Feature        | Images | GIF | Video | Audio |
+| -------------- | ------ | --- | ----- | ----- |
+| Capture        |        | ✅  |       |       |
+| Crop           | ✅     | ✅  | ✅    |       |
+| Trim           |        |     | ✅    | ✅    |
+| Overlay shape  | ✅     | ✅  | ✅    |       |
+| Compress       | ✅     | ✅  | ✅    | ✅    |
+| Audio Extract  |        |     | ✅    | ✅    |
 
 
 See if its what you're looking for, here are some screenshots.
