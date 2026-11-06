@@ -48,6 +48,10 @@
             android:exported="false"
             android:label="@string/video_title" />
         <activity
+            android:name=".audio.AudioActivity"
+            android:exported="false"
+            android:label="@string/audio_title" />
+        <activity
             android:name=".edit.EditorActivity"
             android:exported="false"
             android:label="@string/editor_title"
