@@ -3,6 +3,7 @@ package org.ayasequart.sunshower.video
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.RectF
+import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.net.Uri
@@ -30,6 +31,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.ayasequart.sunshower.R
 import org.ayasequart.sunshower.edit.CropUtils
@@ -40,6 +43,7 @@ import org.ayasequart.sunshower.ui.BusySpinner
 import org.ayasequart.sunshower.ui.StatusMessage
 import org.ayasequart.sunshower.ui.applySystemBarInsets
 import org.ayasequart.sunshower.util.durationText
+import org.ayasequart.sunshower.util.durationTextPrecise
 import org.ayasequart.sunshower.util.displayName
 import org.ayasequart.sunshower.util.extForMime
 import org.ayasequart.sunshower.util.formatBytes
@@ -107,6 +111,9 @@ class VideoActivity : ComponentActivity() {
     private var trimRetriever: MediaMetadataRetriever? = null
     private var trimPreviewJob: Job? = null
     private var pendingPreviewMs = -1L
+    private var settlePreviewJob: Job? = null
+    private var thumbnailJob: Job? = null
+    private val retrieverMutex = Mutex()
 
     private var opusAvailable = false
     private var h264Available = false
@@ -304,6 +311,10 @@ class VideoActivity : ComponentActivity() {
         super.onDestroy()
         trimPreviewJob?.cancel()
         trimPreviewJob = null
+        settlePreviewJob?.cancel()
+        settlePreviewJob = null
+        thumbnailJob?.cancel()
+        thumbnailJob = null
         releaseTrimRetriever()
     }
 
@@ -395,11 +406,33 @@ class VideoActivity : ComponentActivity() {
                 updateEstimate()
                 updateTrimPreview((i.durationUs / 1000 * activeFraction).toLong())
             }
+
+            override fun onTrimSettled(activeFraction: Float) {
+                val i = info ?: return
+                settleTrimPreview((i.durationUs / 1000 * activeFraction).toLong())
+            }
+
+            override fun onThumbnailsNeeded(times: LongArray) {
+                thumbnailJob?.cancel()
+                if (times.isEmpty()) return
+                thumbnailJob = lifecycleScope.launch {
+                    delay(THUMBNAIL_DEBOUNCE_MS)
+                    for (t in times) {
+                        val bmp = withContext(Dispatchers.IO) {
+                            retrieverMutex.withLock { decodeThumbnail(t) }
+                        }
+                        if (bmp != null) {
+                            trimOverlay.setThumbnail(t, bmp)
+                        }
+                    }
+                }
+            }
         }
     }
 
     private fun updateTrimPreview(positionMs: Long) {
         if (positionMs < 0) return
+        settlePreviewJob?.cancel()
         if (trimPreviewJob?.isActive == true) {
             pendingPreviewMs = positionMs
             return
@@ -408,7 +441,7 @@ class VideoActivity : ComponentActivity() {
             var pos = positionMs
             while (pos >= 0) {
                 val frame = withContext(Dispatchers.IO) {
-                    decodeFrameAt(pos)
+                    retrieverMutex.withLock { decodeFrameAt(pos, false) }
                 }
                 if (frame != null) {
                     trimPreview.setBase(frame)
@@ -419,12 +452,47 @@ class VideoActivity : ComponentActivity() {
         }
     }
 
-    private fun decodeFrameAt(positionMs: Long): Bitmap? {
+    private fun settleTrimPreview(positionMs: Long) {
+        if (positionMs < 0) return
+        trimPreviewJob?.cancel()
+        settlePreviewJob?.cancel()
+        settlePreviewJob = lifecycleScope.launch {
+            val frame = withContext(Dispatchers.IO) {
+                retrieverMutex.withLock { decodeFrameAt(positionMs, true) }
+            }
+            if (frame != null) {
+                trimPreview.setBase(frame)
+            }
+        }
+    }
+
+    private fun decodeThumbnail(timeUs: Long): Bitmap? {
         val retriever = trimRetriever ?: return null
         return try {
-            val frame = retriever.getFrameAtTime(
-                positionMs * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC
-            ) ?: return null
+            val density = resources.displayMetrics.density
+            val height = (24 * density).toInt().coerceAtLeast(16)
+            val width = (height * 1.5f).toInt()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                retriever.getScaledFrameAtTime(
+                    timeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, width, height
+                )
+            } else {
+                retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun decodeFrameAt(positionMs: Long, exact: Boolean): Bitmap? {
+        val retriever = trimRetriever ?: return null
+        return try {
+            val option = if (exact && Build.VERSION.SDK_INT >= 27) {
+                MediaMetadataRetriever.OPTION_CLOSEST
+            } else {
+                MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+            }
+            val frame = retriever.getFrameAtTime(positionMs * 1000, option) ?: return null
             val shortSide = SettingsStore.load(this).shortSide
             val scale = shortSide.toFloat() / minOf(frame.width, frame.height).coerceAtLeast(1)
             Bitmap.createScaledBitmap(
@@ -443,11 +511,49 @@ class VideoActivity : ComponentActivity() {
         trimRetriever = null
     }
 
+    private fun extractFrameTimesUs(uri: Uri): LongArray {
+        val pfd = contentResolver.openFileDescriptor(uri, "r")
+            ?: return LongArray(0)
+        val extractor = MediaExtractor()
+        try {
+            extractor.setDataSource(pfd.fileDescriptor)
+            return extractFrameTimes(extractor)
+        } finally {
+            extractor.release()
+            pfd.close()
+        }
+    }
+
+    private fun extractFrameTimes(extractor: MediaExtractor): LongArray {
+        return try {
+            var videoTrack = -1
+            for (i in 0 until extractor.trackCount) {
+                val mime = extractor.getTrackFormat(i).getString(MediaFormat.KEY_MIME)
+                if (mime?.startsWith("video/") == true) {
+                    videoTrack = i
+                    break
+                }
+            }
+            if (videoTrack < 0) return LongArray(0)
+            extractor.selectTrack(videoTrack)
+            val times = ArrayList<Long>()
+            while (extractor.advance()) {
+                val t = extractor.sampleTime
+                if (t >= 0) {
+                    times.add(t)
+                }
+            }
+            times.toLongArray()
+        } catch (e: Exception) {
+            LongArray(0)
+        }
+    }
+
     private fun updateTrimTimeText() {
         val i = info ?: return
         val total = durationText(i.durationUs) ?: "0:00"
-        val start = durationText(trimStartMs * 1000) ?: "0:00"
-        val end = if (trimEndMs >= 0) durationText(trimEndMs * 1000) ?: total else total
+        val start = durationTextPrecise(trimStartMs * 1000) ?: "0:00.0"
+        val end = if (trimEndMs >= 0) durationTextPrecise(trimEndMs * 1000) ?: total else total
         trimTimeText.text = getString(R.string.trim_range, start, end, total)
     }
 
@@ -506,10 +612,15 @@ class VideoActivity : ComponentActivity() {
         estimateText.text = ""
         trimPreviewJob?.cancel()
         trimPreviewJob = null
+        settlePreviewJob?.cancel()
+        settlePreviewJob = null
+        thumbnailJob?.cancel()
+        thumbnailJob = null
         pendingPreviewMs = -1L
         releaseTrimRetriever()
         trimStartMs = 0L
         trimEndMs = -1L
+        trimOverlay.setFrameTimesUs(LongArray(0))
         uriBaseName(uri.displayName(this))?.let {
             fileNameInput.setText(it)
         }
@@ -529,6 +640,16 @@ class VideoActivity : ComponentActivity() {
                 }
             } catch (e: Exception) {
                 retriever.release()
+            }
+            val frameTimes = try {
+                extractFrameTimesUs(uri)
+            } catch (e: Exception) {
+                LongArray(0)
+            }
+            withContext(Dispatchers.Main) {
+                if (pickedUri == uri) {
+                    trimOverlay.setFrameTimesUs(frameTimes)
+                }
             }
             withContext(Dispatchers.Main) {
                 info = probed
@@ -933,5 +1054,6 @@ class VideoActivity : ComponentActivity() {
         private const val SECTION_AUDIO = 2
         private const val SECTION_TRIM = 3
         private const val SECTION_OVERLAY = 4
+        private const val THUMBNAIL_DEBOUNCE_MS = 100L
     }
 }

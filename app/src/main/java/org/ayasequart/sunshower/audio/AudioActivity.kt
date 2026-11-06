@@ -19,6 +19,7 @@ import org.ayasequart.sunshower.ui.BusySpinner
 import org.ayasequart.sunshower.ui.StatusMessage
 import org.ayasequart.sunshower.ui.applySystemBarInsets
 import org.ayasequart.sunshower.util.durationText
+import org.ayasequart.sunshower.util.durationTextPrecise
 import org.ayasequart.sunshower.util.displayName
 import org.ayasequart.sunshower.util.extForMime
 import org.ayasequart.sunshower.util.formatBytes
@@ -142,8 +143,8 @@ class AudioActivity : ComponentActivity() {
     private fun updateTrimTimeText() {
         val i = info ?: return
         val total = durationText(i.durationUs) ?: "0:00"
-        val start = durationText(trimStartMs * 1000) ?: "0:00"
-        val end = if (trimEndMs >= 0) durationText(trimEndMs * 1000) ?: total else total
+        val start = durationTextPrecise(trimStartMs * 1000) ?: "0:00.0"
+        val end = if (trimEndMs >= 0) durationTextPrecise(trimEndMs * 1000) ?: total else total
         timeText.text = getString(R.string.trim_range, start, end, total)
     }
 
