@@ -50,6 +50,7 @@ class EditorActivity : ComponentActivity() {
     private var sourceUri: Uri? = null
     private var sourceFormat: Bitmap.CompressFormat? = null
     private var frames: List<Bitmap>? = null
+    private var fullFrame: Bitmap? = null
     private var isGif = false
     private var cropRect: RectF? = null
     private var imageOptions: ImageOutputOptions? = null
@@ -200,6 +201,16 @@ class EditorActivity : ComponentActivity() {
                 frames = listOf(Bitmap.createBitmap(current, l, t, w, h))
                 overlayView.setBase(frames!!.first())
             }
+            val full = fullFrame
+            if (full != null) {
+                val l = (crop.left * full.width).roundToInt().coerceIn(0, full.width - 2)
+                val t = (crop.top * full.height).roundToInt().coerceIn(0, full.height - 2)
+                val w = (crop.width() * full.width).roundToInt()
+                    .coerceIn(2, full.width - l)
+                val h = (crop.height() * full.height).roundToInt()
+                    .coerceIn(2, full.height - t)
+                fullFrame = Bitmap.createBitmap(full, l, t, w, h)
+            }
         }
         setCropUi(false)
     }
@@ -216,7 +227,7 @@ class EditorActivity : ComponentActivity() {
 
     private fun showOptions() {
         if (!isGif) {
-            val current = frames?.firstOrNull()
+            val current = fullFrame ?: frames?.firstOrNull()
             val initial = imageOptions ?: ImageOutputOptions.defaults()
             OutputOptionsPopup.showImageOptions(
                 this,
@@ -254,15 +265,24 @@ class EditorActivity : ComponentActivity() {
             ImageReencoder.getImageFormat(it)
         }
         val settings = SettingsStore.load(this)
+        val previewShortSide = maxOf(settings.shortSide, 720)
         val scale =
-            settings.shortSide.toFloat() / minOf(decoded.width, decoded.height).coerceAtLeast(1)
-        val w = (decoded.width * scale).toInt().coerceAtLeast(1)
-        val h = (decoded.height * scale).toInt().coerceAtLeast(1)
-        val first = Bitmap.createScaledBitmap(decoded, w, h, true)
+            previewShortSide.toFloat() / minOf(decoded.width, decoded.height).coerceAtLeast(1)
+        val preview = if (scale < 1f) {
+            Bitmap.createScaledBitmap(
+                decoded,
+                (decoded.width * scale).toInt().coerceAtLeast(1),
+                (decoded.height * scale).toInt().coerceAtLeast(1),
+                true
+            )
+        } else {
+            decoded
+        }
         withContext(Dispatchers.Main) {
             isGif = gif
-            frames = listOf(first)
-            overlayView.setBase(first)
+            fullFrame = decoded
+            frames = listOf(preview)
+            overlayView.setBase(preview)
             optionsButton.visibility = if (gif) View.GONE else View.VISIBLE
             statusText.text = ""
         }
@@ -289,7 +309,7 @@ class EditorActivity : ComponentActivity() {
     }
 
     private fun saveImage() {
-        val base = frames?.first() ?: return
+        val base = fullFrame ?: frames?.first() ?: return
         busy = true
         optionsButton.isEnabled = false
         busySpinner.show()
