@@ -7,9 +7,13 @@ import android.os.Build
 object CodecSupport {
 
     fun hardwareEncoderMimes(): Set<String> {
+        return encoderMimes(hardwareOnly = true)
+    }
+
+    fun encoderMimes(hardwareOnly: Boolean): Set<String> {
         return try {
             MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
-                .filter { it.isEncoder && isHardware(it) }
+                .filter { it.isEncoder && (!hardwareOnly || isHardware(it)) }
                 .flatMap { it.supportedTypes.toList() }
                 .toSet()
         } catch (e: Exception) {

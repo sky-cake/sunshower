@@ -292,13 +292,13 @@ class VideoActivity : ComponentActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             val mimes = CodecSupport.hardwareEncoderMimes()
-            fun has(mime: String) = mimes.contains(mime)
+            val allMimes = CodecSupport.encoderMimes(hardwareOnly = false)
             val opus = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                has(MediaFormat.MIMETYPE_AUDIO_OPUS)
-            val h264 = has(MimeTypes.VIDEO_H264)
-            val h265 = has(MimeTypes.VIDEO_H265)
-            val vp8 = has(MimeTypes.VIDEO_VP8)
-            val vp9 = has(MimeTypes.VIDEO_VP9)
+                allMimes.contains(MediaFormat.MIMETYPE_AUDIO_OPUS)
+            val h264 = mimes.contains(MimeTypes.VIDEO_H264)
+            val h265 = mimes.contains(MimeTypes.VIDEO_H265)
+            val vp8 = allMimes.contains(MimeTypes.VIDEO_VP8)
+            val vp9 = allMimes.contains(MimeTypes.VIDEO_VP9)
             withContext(Dispatchers.Main) {
                 opusAvailable = opus
                 h264Available = h264
@@ -750,7 +750,7 @@ class VideoActivity : ComponentActivity() {
     }
 
     private fun altAvailable(): Boolean {
-        return if (sourceWebm()) true else vp8Available || vp9Available
+        return if (sourceWebm()) true else vp9Available
     }
 
     private fun compressChoice(): CompressChoice {
@@ -773,14 +773,15 @@ class VideoActivity : ComponentActivity() {
                 }
             }
             asisAvailable() -> {
-                container = if (sourceWebm()) "video/webm" else "video/mp4"
-                videoMime = i.videoMime ?: MimeTypes.VIDEO_H264
-                if (container == "video/webm" && videoMime == MimeTypes.VIDEO_VP8 && !vp9Available) {
-                    container = "video/mp4"
-                    videoMime = MimeTypes.VIDEO_H264
-                } else if (container == "video/mp4" && videoMime != MimeTypes.VIDEO_H264) {
-                    videoMime = MimeTypes.VIDEO_H264
-                }
+                val webmOutput = sourceWebm() &&
+                    (i.videoMime != MimeTypes.VIDEO_VP8 || vp9Available)
+                container = if (webmOutput) "video/webm" else "video/mp4"
+                videoMime =
+                    if (webmOutput) {
+                        i.videoMime ?: MimeTypes.VIDEO_VP9
+                    } else {
+                        MimeTypes.VIDEO_H264
+                    }
             }
             else -> {
                 videoMime = MimeTypes.VIDEO_H264
@@ -939,10 +940,8 @@ class VideoActivity : ComponentActivity() {
             }
         if (sourceWebm()) {
             videoAltRadio.text = getString(R.string.video_format_mp4)
-        } else if (vp9Available) {
-            videoAltRadio.text = getString(R.string.video_format_webm, "VP9")
         } else {
-            videoAltRadio.text = getString(R.string.video_format_mp4)
+            videoAltRadio.text = getString(R.string.video_format_webm, "VP9")
         }
         videoDefaultRadio.visibility = if (asisAvailable()) View.VISIBLE else View.GONE
         videoAltRadio.visibility = if (altAvailable()) View.VISIBLE else View.GONE
