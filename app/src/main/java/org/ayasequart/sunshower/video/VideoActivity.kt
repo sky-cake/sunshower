@@ -768,8 +768,13 @@ class VideoActivity : ComponentActivity() {
                 container = "video/webm"
             }
             asisAvailable() -> {
-                videoMime = i.videoMime ?: MimeTypes.VIDEO_H264
                 container = if (sourceWebm()) "video/webm" else "video/mp4"
+                videoMime =
+                    if (container == "video/mp4" && i.videoMime != MimeTypes.VIDEO_H264) {
+                        MimeTypes.VIDEO_H264
+                    } else {
+                        i.videoMime ?: MimeTypes.VIDEO_H264
+                    }
             }
             else -> {
                 videoMime = MimeTypes.VIDEO_H264
@@ -919,7 +924,11 @@ class VideoActivity : ComponentActivity() {
             return
         }
         videoDefaultRadio.text =
-            getString(R.string.video_fmt_asis, if (sourceWebm()) "WebM" else "MP4")
+            if (!sourceWebm() && i.videoMime != MimeTypes.VIDEO_H264) {
+                getString(R.string.video_format_mp4)
+            } else {
+                getString(R.string.video_fmt_asis, if (sourceWebm()) "WebM" else "MP4")
+            }
         if (sourceWebm()) {
             videoAltRadio.text = getString(R.string.video_format_mp4)
         } else {
@@ -1005,7 +1014,7 @@ class VideoActivity : ComponentActivity() {
                 this@VideoActivity,
                 uri,
                 outFile,
-                removeAudio = audioRemoveSwitch.isChecked,
+                removeAudio = audioRemoveSwitch.isChecked || !i.hasAudio,
                 targetHeight = targetHeight,
                 targetFps = selectedFps()?.takeIf { i.frameRate > it },
                 videoMime = choice.videoMime,
