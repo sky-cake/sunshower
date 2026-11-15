@@ -764,17 +764,23 @@ class VideoActivity : ComponentActivity() {
                 container = "video/mp4"
             }
             useAlt -> {
-                videoMime = if (vp9Available) MimeTypes.VIDEO_VP9 else MimeTypes.VIDEO_VP8
-                container = "video/webm"
+                if (vp9Available) {
+                    videoMime = MimeTypes.VIDEO_VP9
+                    container = "video/webm"
+                } else {
+                    videoMime = MimeTypes.VIDEO_H264
+                    container = "video/mp4"
+                }
             }
             asisAvailable() -> {
                 container = if (sourceWebm()) "video/webm" else "video/mp4"
-                videoMime =
-                    if (container == "video/mp4" && i.videoMime != MimeTypes.VIDEO_H264) {
-                        MimeTypes.VIDEO_H264
-                    } else {
-                        i.videoMime ?: MimeTypes.VIDEO_H264
-                    }
+                videoMime = i.videoMime ?: MimeTypes.VIDEO_H264
+                if (container == "video/webm" && videoMime == MimeTypes.VIDEO_VP8 && !vp9Available) {
+                    container = "video/mp4"
+                    videoMime = MimeTypes.VIDEO_H264
+                } else if (container == "video/mp4" && videoMime != MimeTypes.VIDEO_H264) {
+                    videoMime = MimeTypes.VIDEO_H264
+                }
             }
             else -> {
                 videoMime = MimeTypes.VIDEO_H264
@@ -924,16 +930,19 @@ class VideoActivity : ComponentActivity() {
             return
         }
         videoDefaultRadio.text =
-            if (!sourceWebm() && i.videoMime != MimeTypes.VIDEO_H264) {
-                getString(R.string.video_format_mp4)
-            } else {
-                getString(R.string.video_fmt_asis, if (sourceWebm()) "WebM" else "MP4")
+            when {
+                sourceWebm() && (i.videoMime != MimeTypes.VIDEO_VP8 || vp9Available) ->
+                    getString(R.string.video_fmt_asis, "WebM")
+                !sourceWebm() && i.videoMime == MimeTypes.VIDEO_H264 ->
+                    getString(R.string.video_fmt_asis, "MP4")
+                else -> getString(R.string.video_format_mp4)
             }
         if (sourceWebm()) {
             videoAltRadio.text = getString(R.string.video_format_mp4)
+        } else if (vp9Available) {
+            videoAltRadio.text = getString(R.string.video_format_webm, "VP9")
         } else {
-            val webmCodec = if (vp9Available) "VP9" else "VP8"
-            videoAltRadio.text = getString(R.string.video_format_webm, webmCodec)
+            videoAltRadio.text = getString(R.string.video_format_mp4)
         }
         videoDefaultRadio.visibility = if (asisAvailable()) View.VISIBLE else View.GONE
         videoAltRadio.visibility = if (altAvailable()) View.VISIBLE else View.GONE
@@ -999,8 +1008,7 @@ class VideoActivity : ComponentActivity() {
             val dir = File(cacheDir, "video_out")
             dir.mkdirs()
             val choice = compressChoice()
-            val fileExt = if (choice.containerMime == "video/webm") ".webm" else ".mp4"
-            val outFile = File(dir, "out_${System.currentTimeMillis()}$fileExt")
+            val outFile = File(dir, "out_${System.currentTimeMillis()}.mp4")
             val (w, h) = outputDims(i)
             val targetHeight = selectedTargetHeight()?.let { h }
             val overlayBitmap = if (videoOverlay.hasOverlays() && w > 0 && h > 0) {
@@ -1031,12 +1039,21 @@ class VideoActivity : ComponentActivity() {
                 overlayBitmap = overlayBitmap,
                 onProgress = { p -> runOnUiThread { updateProgress(p) } }
             )
-            val base = fileNameInput.text.toString().sanitizedFileName("video")
-            val ext = extForMime(output.mime)
-            val savedUri = withContext(Dispatchers.IO) {
-                VideoSaver.saveFile(this@VideoActivity, output.file, "$base$ext", output.mime, true)
+            var finalFile = output.file
+            var finalMime = "video/mp4"
+            if (choice.containerMime == "video/webm") {
+                val webmFile = File(dir, "out_${System.currentTimeMillis()}.webm")
+                VideoProcessor.remuxToWebm(output.file, webmFile)
+                output.file.delete()
+                finalFile = webmFile
+                finalMime = "video/webm"
             }
-            output.file.delete()
+            val base = fileNameInput.text.toString().sanitizedFileName("video")
+            val ext = extForMime(finalMime)
+            val savedUri = withContext(Dispatchers.IO) {
+                VideoSaver.saveFile(this@VideoActivity, finalFile, "$base$ext", finalMime, true)
+            }
+            finalFile.delete()
             if (savedUri == null) throw IOException("save failed")
             onSaved("Movies")
         } catch (e: Exception) {

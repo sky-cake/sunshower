@@ -215,6 +215,66 @@ object VideoProcessor {
         return if (file.name.endsWith(".webm")) "video/webm" else "video/mp4"
     }
 
+    suspend fun remuxToWebm(inFile: File, outFile: File): VideoOutput =
+        withContext(Dispatchers.IO) {
+            val extractor = MediaExtractor()
+            try {
+                extractor.setDataSource(inFile.absolutePath)
+                var videoIdx = -1
+                var audioIdx = -1
+                for (i in 0 until extractor.trackCount) {
+                    val mime = extractor.getTrackFormat(i).getString(MediaFormat.KEY_MIME)
+                    when {
+                        videoIdx < 0 && mime?.startsWith("video/") == true -> videoIdx = i
+                        audioIdx < 0 && mime?.startsWith("audio/") == true -> audioIdx = i
+                    }
+                }
+                if (videoIdx < 0) throw IllegalStateException("no video track")
+                extractor.selectTrack(videoIdx)
+                if (audioIdx >= 0) extractor.selectTrack(audioIdx)
+                val muxer =
+                    MediaMuxer(outFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM)
+                try {
+                    val videoDst = muxer.addTrack(extractor.getTrackFormat(videoIdx))
+                    val audioDst =
+                        if (audioIdx >= 0) muxer.addTrack(extractor.getTrackFormat(audioIdx)) else -1
+                    muxer.start()
+                    var capacity = 1 shl 20
+                    for (i in listOfNotNull(
+                        videoIdx,
+                        if (audioIdx >= 0) audioIdx else null
+                    )) {
+                        val f = extractor.getTrackFormat(i)
+                        if (f.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
+                            capacity = maxOf(capacity, f.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE))
+                        }
+                    }
+                    val buffer = ByteBuffer.allocateDirect(capacity)
+                    val info = MediaCodec.BufferInfo()
+                    while (true) {
+                        val size = extractor.readSampleData(buffer, 0)
+                        if (size < 0) break
+                        info.size = size
+                        info.presentationTimeUs = extractor.sampleTime
+                        info.flags = extractor.sampleFlags
+                        info.offset = 0
+                        when (extractor.sampleTrackIndex) {
+                            videoIdx -> muxer.writeSampleData(videoDst, buffer, info)
+                            audioIdx ->
+                                if (audioDst >= 0) muxer.writeSampleData(audioDst, buffer, info)
+                        }
+                        extractor.advance()
+                    }
+                    muxer.stop()
+                } finally {
+                    muxer.release()
+                }
+            } finally {
+                extractor.release()
+            }
+            VideoOutput(outFile, "video/webm")
+        }
+
     suspend fun stripAudio(
         context: Context,
         uri: Uri,
